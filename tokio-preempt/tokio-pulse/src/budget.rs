@@ -1,91 +1,33 @@
-//! Task Budget Management for Preemption Control
+//! Task budget management for preemptive yielding.
 //!
-//! This module implements a high-performance budget system for controlling task execution
-//! in the Tokio runtime. Each task is allocated a budget that decrements on each poll
-//! operation, enabling preemptive yielding when tasks exceed their allocated CPU time.
-//!
-//! # Design Rationale
-//!
-//! Based on research from several preemption systems:
-//! - BEAM/Erlang: Uses 4000 reductions as default budget before forced yield
-//! - Go: Preempts goroutines after ~10ms using SIGURG (not safe in Rust)
-//! - Our approach: Configurable budget with graduated intervention tiers
-//!
-//! # Performance Requirements
-//!
-//! - Budget check: <20ns per atomic operation
-//! - Memory footprint: Exactly 16 bytes per task
-//! - Cache alignment: Prevent false sharing between tasks
-//! - Zero allocation: All operations must be allocation-free
-//!
-//! # Memory Layout
-//!
-//! The `TaskBudget` struct is carefully designed to fit in exactly 16 bytes:
-//! ```text
-//! Offset | Size | Field
-//! -------|------|----------------
-//! 0      | 8    | deadline_ns (AtomicU64)
-//! 8      | 4    | remaining (AtomicU32)
-//! 12     | 1    | tier (AtomicU8)
-//! 13     | 3    | padding
-//! ```
-//!
-//! # Intervention Tiers
-//!
-//! The system uses graduated intervention to avoid false positives:
-//! - Tier 0 (Monitor): Normal execution, track budget consumption
-//! - Tier 1 (Warn): Budget exhausted, suggest voluntary yield
-//! - Tier 2 (Yield): Force yield at next await point
-//! - Tier 3 (Isolate): Move to separate worker pool
-//!
-//! # Example
-//!
-//! ```rust
-//! use tokio_pulse::budget::TaskBudget;
-//!
-//! // Create a new budget with 1000 operations
-//! let budget = TaskBudget::new(1000);
-//!
-//! // Consume budget on each poll
-//! while !budget.consume() {
-//!     // Task continues execution
-//! }
-//! // Budget exhausted, should yield
-//! ```
+//! Implements reduction-based preemption inspired by BEAM/Erlang's 4000-reduction model.
+//! Each task receives an operation budget that decrements on poll operations.
 
 use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 
-/// Default budget allocation per task poll cycle
-/// Based on BEAM's 4000 reductions, adjusted for Rust's execution model
+/// Default budget allocation per task poll cycle.
 pub const DEFAULT_BUDGET: u32 = 2000;
 
-/// Minimum budget to prevent thrashing
+/// Minimum budget to prevent thrashing.
 pub const MIN_BUDGET: u32 = 100;
 
-/// Maximum budget to prevent starvation of other tasks
+/// Maximum budget to prevent starvation.
 pub const MAX_BUDGET: u32 = 10000;
 
-/// Task execution budget with cache-aligned layout
-///
-/// This structure tracks the remaining operations budget for a task
-/// and manages tier escalation for misbehaving tasks.
+/// Task execution budget with cache-aligned layout.
 #[repr(C, align(16))]
 #[derive(Debug)]
 pub struct TaskBudget {
-    /// CPU time deadline in nanoseconds (for future use)
-    deadline_ns: AtomicU64,
+    deadline_ns: AtomicU64,  /* CPU time deadline (ns) */
 
-    /// Remaining operations before forced yield
-    remaining: AtomicU32,
+    remaining: AtomicU32,    /* Operations before yield */
 
-    /// Current intervention tier (0-3)
-    tier: AtomicU8,
+    tier: AtomicU8,          /* Intervention tier (0-3) */
 
-    /// Padding to ensure 16-byte total size
-    _padding: [u8; 3],
+    _padding: [u8; 3],       /* Cache alignment */
 }
 
-// Compile-time size verification
+/* Compile-time size verification */
 const _: () = {
     assert!(std::mem::size_of::<TaskBudget>() == 16);
     assert!(std::mem::align_of::<TaskBudget>() == 16);
@@ -117,52 +59,40 @@ impl TaskBudget {
         }
     }
 
-    /// Consumes one unit of budget
+    /// Consumes one unit of budget.
     ///
-    /// Returns `true` if the budget is exhausted and the task should yield.
-    ///
-    /// This is the hot path operation and must be extremely fast (<20ns).
-    /// Uses `Relaxed` ordering for minimal overhead since exact counts
-    /// don't need to be synchronized across threads.
+    /// Returns `true` if budget is exhausted.
     #[inline]
     pub fn consume(&self) -> bool {
-        // Saturating subtraction to avoid underflow
         let previous = self.remaining.fetch_sub(1, Ordering::Relaxed);
-        // Return true if we just consumed the last unit (previous was 1)
         previous <= 1
     }
 
-    /// Checks if the budget has been exceeded without consuming
+    /// Checks if budget is exhausted without consuming.
     #[inline]
     pub fn is_exhausted(&self) -> bool {
         self.remaining.load(Ordering::Relaxed) == 0
     }
 
-    /// Resets the budget for a new poll cycle
-    ///
-    /// This should be called when a task voluntarily yields or
-    /// starts a new poll cycle after yielding.
+    /// Resets budget for new poll cycle.
     #[inline]
     pub fn reset(&self, new_budget: u32) {
         self.remaining.store(new_budget, Ordering::Relaxed);
     }
 
-    /// Gets the current remaining budget
+    /// Returns remaining budget.
     #[inline]
     pub fn remaining(&self) -> u32 {
         self.remaining.load(Ordering::Relaxed)
     }
 
-    /// Gets the current intervention tier
+    /// Returns current tier.
     #[inline]
     pub fn tier(&self) -> u8 {
         self.tier.load(Ordering::Acquire)
     }
 
-    /// Escalates the intervention tier
-    ///
-    /// Uses `Acquire-Release` ordering to ensure tier changes are
-    /// visible across threads in the correct order.
+    /// Escalates intervention tier.
     #[inline]
     pub fn escalate_tier(&self) -> u8 {
         let current = self.tier.load(Ordering::Acquire);
@@ -175,21 +105,19 @@ impl TaskBudget {
         }
     }
 
-    /// Resets the intervention tier to monitor level
+    /// Resets tier to monitor level.
     #[inline]
     pub fn reset_tier(&self) {
         self.tier.store(0, Ordering::Release);
     }
 
-    /// Sets the CPU time deadline for this task
-    ///
-    /// This will be used in future versions for time-based preemption
+    /// Sets CPU time deadline.
     #[inline]
     pub fn set_deadline(&self, deadline_ns: u64) {
         self.deadline_ns.store(deadline_ns, Ordering::Relaxed);
     }
 
-    /// Gets the CPU time deadline for this task
+    /// Returns CPU time deadline.
     #[inline]
     pub fn deadline(&self) -> u64 {
         self.deadline_ns.load(Ordering::Relaxed)

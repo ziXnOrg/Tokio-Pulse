@@ -1,73 +1,25 @@
-//! Runtime Hook Infrastructure for Preemption Control
-//!
-//! This module defines the hook interface that allows the TierManager to integrate
-//! with the Tokio runtime. These hooks are designed to have minimal overhead when
-//! not in use and provide precise control points for preemption decisions.
+//! Runtime hooks for preemption control.
 
 #![allow(unsafe_code)]
-#![allow(clippy::inline_always)] // Performance-critical hot path
-//!
-//! # Design Philosophy
-//!
-//! - **Zero-cost when disabled**: Null checks are predicted by branch predictor
-//! - **Minimal interface**: Only essential hooks to reduce integration complexity
-//! - **Thread-safe**: All hooks must be Send + Sync for concurrent execution
-//! - **Non-blocking**: Hooks must not perform blocking operations
-//!
-//! # Integration Points
-//!
-//! The hooks should be integrated into Tokio's task execution path:
-//! 1. `before_poll`: Called immediately before `Future::poll()`
-//! 2. `after_poll`: Called immediately after `Future::poll()` returns
-//! 3. `on_yield`: Called when a task voluntarily yields
-//! 4. `on_completion`: Called when a task completes (Ready or dropped)
+#![allow(clippy::inline_always)] /* Performance-critical */
 
 use crate::tier_manager::{PollResult, TaskContext, TaskId};
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Trait defining the preemption hook interface
-///
-/// Implementations must be thread-safe and non-blocking. Hook functions
-/// are called from the runtime's hot path, so they must be extremely efficient.
+/// Preemption hook interface.
 pub trait PreemptionHooks: Send + Sync {
-    /// Called before polling a task
-    ///
-    /// This hook can inspect the task state and prepare for measurement.
-    /// It must not block or perform expensive operations.
-    ///
-    /// # Arguments
-    /// * `task_id` - Unique identifier for the task
-    /// * `context` - Runtime context for the task
+    /// Called before polling a task.
     fn before_poll(&self, task_id: TaskId, context: &TaskContext);
 
-    /// Called after polling a task
-    ///
-    /// This hook receives the poll result and duration, allowing it to
-    /// make preemption decisions based on task behavior.
-    ///
-    /// # Arguments
-    /// * `task_id` - Unique identifier for the task
-    /// * `result` - Result of the poll operation
-    /// * `duration` - Time spent in the poll operation
+    /// Called after polling a task.
     fn after_poll(&self, task_id: TaskId, result: PollResult, duration: Duration);
 
-    /// Called when a task voluntarily yields
-    ///
-    /// This indicates good behavior and may result in tier demotion
-    /// or budget reset.
-    ///
-    /// # Arguments
-    /// * `task_id` - Unique identifier for the task
+    /// Called when a task voluntarily yields.
     fn on_yield(&self, task_id: TaskId);
 
-    /// Called when a task completes
-    ///
-    /// This allows cleanup of any per-task state.
-    ///
-    /// # Arguments
-    /// * `task_id` - Unique identifier for the task
+    /// Called when a task completes.
     fn on_completion(&self, task_id: TaskId);
 }
 

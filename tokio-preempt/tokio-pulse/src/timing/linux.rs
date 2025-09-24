@@ -1,51 +1,33 @@
-//! Linux-specific CPU time measurement using `clock_gettime`
+//! Linux CPU timing via clock_gettime.
 
 #![allow(unsafe_code)]
-//!
-//! This implementation uses the POSIX `clock_gettime` function with
-//! `CLOCK_THREAD_CPUTIME_ID` to measure per-thread CPU time with
-//! nanosecond precision.
-//!
-//! # Performance
-//!
-//! - Overhead: ~15ns per measurement (after calibration)
-//! - Resolution: 1 nanosecond
-//! - Accuracy: System-dependent, typically microsecond-level
-//!
-//! # Requirements
-//!
-//! Requires Linux kernel 2.6.12 or later for thread CPU time support.
 
 use libc::{CLOCK_THREAD_CPUTIME_ID, clock_gettime, timespec};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{Calibratable, CpuTimer, TimingError, median_of_sorted};
 
-/// Linux CPU timer using `clock_gettime`
+/* Linux timer implementation */
 #[derive(Debug)]
 pub struct LinuxTimer {
-    /// Calibrated overhead in nanoseconds
+    /* Calibrated overhead (ns) */
     overhead_ns: AtomicU64,
 }
 
 impl LinuxTimer {
-    /// Creates a new Linux timer
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if clock_gettime is not available or fails.
+    /* Create Linux timer */
     pub fn new() -> Result<Self, TimingError> {
         let timer = Self {
             overhead_ns: AtomicU64::new(0),
         };
 
-        // Verify that clock_gettime works
+        /* Verify clock_gettime */
         timer.get_thread_cpu_time_raw()?;
 
         Ok(timer)
     }
 
-    /// Gets raw CPU time without overhead compensation
+    /* Raw CPU time without compensation */
     #[inline]
     fn get_thread_cpu_time_raw(&self) -> Result<u64, TimingError> {
         let mut ts = timespec {
@@ -53,12 +35,11 @@ impl LinuxTimer {
             tv_nsec: 0,
         };
 
-        // SAFETY: clock_gettime is safe to call with a valid timespec pointer
-        // and CLOCK_THREAD_CPUTIME_ID is a valid clock ID on Linux.
+        /* SAFETY: Valid timespec and clock ID */
         let ret = unsafe { clock_gettime(CLOCK_THREAD_CPUTIME_ID, &mut ts) };
 
         if ret == 0 {
-            // Convert to nanoseconds, checking for overflow
+            /* Convert to nanoseconds */
             let secs_ns = (ts.tv_sec as u64).saturating_mul(1_000_000_000);
             let total_ns = secs_ns.saturating_add(ts.tv_nsec as u64);
             Ok(total_ns)
@@ -74,7 +55,7 @@ impl CpuTimer for LinuxTimer {
         let raw_time = self.get_thread_cpu_time_raw()?;
         let overhead = self.overhead_ns.load(Ordering::Relaxed);
 
-        // Subtract calibrated overhead, but don't go negative
+        /* Subtract overhead */
         Ok(raw_time.saturating_sub(overhead))
     }
 
@@ -93,7 +74,7 @@ impl Calibratable for LinuxTimer {
         const SAMPLES: usize = 1000;
         let mut overheads = Vec::with_capacity(SAMPLES);
 
-        // Warm up
+        /* Warm up */
         for _ in 0..100 {
             let _ = self.get_thread_cpu_time_raw();
         }
