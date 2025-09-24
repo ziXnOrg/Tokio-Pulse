@@ -1,20 +1,16 @@
-//! macOS-specific CPU time measurement using `thread_info`
+#![allow(unsafe_code)] /* Mach kernel APIs require unsafe */
 
-#![allow(unsafe_code)]
-//!
-//! This implementation uses the Mach kernel's `thread_info` function to
-//! query thread-specific CPU time information. It combines both user and
-//! system time for the total CPU time consumed by the thread.
-//!
-//! # Performance
-//!
-//! - Overhead: ~40ns per measurement (after calibration)
-//! - Resolution: Microsecond
-//! - Accuracy: Microsecond-level
-//!
-//! # Requirements
-//!
-//! Requires macOS/Darwin with Mach kernel support.
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* macOS CPU time via thread_info */
 
 use libc::{thread_basic_info, thread_info, thread_info_t};
 use mach2::kern_return::KERN_SUCCESS;

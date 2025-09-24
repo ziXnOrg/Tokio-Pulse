@@ -1,10 +1,20 @@
-//! Runtime hooks for preemption control.
-
-#![allow(unsafe_code)]
+#![forbid(unsafe_code)]
 #![allow(clippy::inline_always)] /* Performance-critical */
 
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Runtime hooks for preemption control */
+
 use crate::tier_manager::{PollResult, TaskContext, TaskId};
-use std::sync::atomic::{AtomicPtr, Ordering};
+use parking_lot::RwLock;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -49,130 +59,70 @@ impl PreemptionHooks for NullHooks {
     }
 }
 
-/// Type alias for Arc of `PreemptionHooks`
-type HooksArc = Arc<dyn PreemptionHooks>;
-
-/// Global hook registry for the runtime
-///
-/// This uses an atomic pointer to allow runtime installation and removal
-/// of hooks without locks in the hot path.
+/* Hook registry using RwLock for safe concurrent access */
 pub struct HookRegistry {
-    /// Pointer to the current hooks implementation (Arc<dyn PreemptionHooks>)
-    hooks: AtomicPtr<HooksArc>,
+    hooks: Arc<RwLock<Option<Arc<dyn PreemptionHooks>>>>,
 }
 
 impl HookRegistry {
-    /// Creates a new registry with no hooks installed
+    /* Create new registry */
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            hooks: AtomicPtr::new(std::ptr::null_mut()),
+            hooks: Arc::new(RwLock::new(None)),
         }
     }
 
-    /// Installs a new set of hooks
-    ///
-    /// Returns the previously installed hooks, if any.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure that no tasks are currently being polled
-    /// when hooks are changed, or that the hook implementation can
-    /// handle concurrent calls during the transition.
+    /* Install hooks */
     pub fn set_hooks(&self, hooks: Arc<dyn PreemptionHooks>) -> Option<Arc<dyn PreemptionHooks>> {
-        let boxed = Box::new(hooks);
-        let new_ptr = Box::into_raw(boxed);
-        let old_ptr = self.hooks.swap(new_ptr, Ordering::AcqRel);
-
-        if old_ptr.is_null() {
-            None
-        } else {
-            // SAFETY: We know old_ptr came from Box::into_raw
-            let boxed = unsafe { Box::from_raw(old_ptr) };
-            Some(*boxed)
-        }
+        self.hooks.write().replace(hooks)
     }
 
-    /// Removes the current hooks
-    ///
-    /// Returns the previously installed hooks, if any.
+    /* Remove hooks */
     pub fn clear_hooks(&self) -> Option<Arc<dyn PreemptionHooks>> {
-        let old_ptr = self.hooks.swap(std::ptr::null_mut(), Ordering::AcqRel);
-
-        if old_ptr.is_null() {
-            None
-        } else {
-            // SAFETY: We know old_ptr came from Box::into_raw
-            let boxed = unsafe { Box::from_raw(old_ptr) };
-            Some(*boxed)
-        }
+        self.hooks.write().take()
     }
 
-    /// Calls the `before_poll` hook if hooks are installed
+    /* Pre-poll hook */
     #[inline(always)]
     pub fn before_poll(&self, task_id: TaskId, context: &TaskContext) {
-        let hooks_ptr = self.hooks.load(Ordering::Acquire);
-        if !hooks_ptr.is_null() {
-            // SAFETY: We check for null and the pointer is valid while in use
-            unsafe {
-                let arc = &*hooks_ptr;
-                arc.before_poll(task_id, context);
-            }
+        if let Some(hooks) = self.hooks.read().as_ref() {
+            hooks.before_poll(task_id, context);
         }
     }
 
-    /// Calls the `after_poll` hook if hooks are installed
+    /* Post-poll hook */
     #[inline(always)]
     pub fn after_poll(&self, task_id: TaskId, result: PollResult, duration: Duration) {
-        let hooks_ptr = self.hooks.load(Ordering::Acquire);
-        if !hooks_ptr.is_null() {
-            // SAFETY: We check for null and the pointer is valid while in use
-            unsafe {
-                let arc = &*hooks_ptr;
-                arc.after_poll(task_id, result, duration);
-            }
+        if let Some(hooks) = self.hooks.read().as_ref() {
+            hooks.after_poll(task_id, result, duration);
         }
     }
 
-    /// Calls the `on_yield` hook if hooks are installed
+    /* Yield hook */
     #[inline(always)]
     pub fn on_yield(&self, task_id: TaskId) {
-        let hooks_ptr = self.hooks.load(Ordering::Acquire);
-        if !hooks_ptr.is_null() {
-            // SAFETY: We check for null and the pointer is valid while in use
-            unsafe {
-                let arc = &*hooks_ptr;
-                arc.on_yield(task_id);
-            }
+        if let Some(hooks) = self.hooks.read().as_ref() {
+            hooks.on_yield(task_id);
         }
     }
 
-    /// Calls the `on_completion` hook if hooks are installed
+    /* Completion hook */
     #[inline(always)]
     pub fn on_completion(&self, task_id: TaskId) {
-        let hooks_ptr = self.hooks.load(Ordering::Acquire);
-        if !hooks_ptr.is_null() {
-            // SAFETY: We check for null and the pointer is valid while in use
-            unsafe {
-                let arc = &*hooks_ptr;
-                arc.on_completion(task_id);
-            }
+        if let Some(hooks) = self.hooks.read().as_ref() {
+            hooks.on_completion(task_id);
         }
     }
 
-    /// Checks if hooks are currently installed
+    /* Check if hooks installed */
     #[inline]
     pub fn has_hooks(&self) -> bool {
-        !self.hooks.load(Ordering::Acquire).is_null()
+        self.hooks.read().is_some()
     }
 }
 
-// SAFETY: HookRegistry can be safely shared between threads because:
-// - AtomicPtr operations are thread-safe
-// - The Arc<dyn PreemptionHooks> we store is Send + Sync
-// - We only do atomic pointer swaps, no data races possible
-unsafe impl Sync for HookRegistry {}
-unsafe impl Send for HookRegistry {}
+/* HookRegistry is Send + Sync via RwLock */
 
 impl Default for HookRegistry {
     fn default() -> Self {
@@ -206,7 +156,7 @@ impl PreemptionHooks for crate::tier_manager::TierManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     /// Test implementation that counts hook calls
     struct CountingHooks {

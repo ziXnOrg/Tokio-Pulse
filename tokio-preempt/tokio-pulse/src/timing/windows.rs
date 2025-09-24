@@ -1,20 +1,16 @@
-//! Windows-specific CPU time measurement using `QueryThreadCycleTime`
+#![allow(unsafe_code)] /* Windows APIs require unsafe */
 
-#![allow(unsafe_code)]
-//!
-//! This implementation uses the Windows `QueryThreadCycleTime` API to measure
-//! per-thread CPU cycles, then converts them to nanoseconds using the
-//! system's performance frequency.
-//!
-//! # Performance
-//!
-//! - Overhead: ~30ns per measurement (after calibration)
-//! - Resolution: Depends on CPU frequency
-//! - Accuracy: Cycle-accurate within the thread
-//!
-//! # Requirements
-//!
-//! Requires Windows Vista or later for QueryThreadCycleTime support.
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Windows CPU time via QueryThreadCycleTime */
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use windows_sys::Win32::System::{

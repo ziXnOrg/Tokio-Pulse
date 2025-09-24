@@ -1,6 +1,16 @@
-//! Linux CPU timing via clock_gettime.
+#![allow(unsafe_code)] /* clock_gettime requires unsafe */
 
-#![allow(unsafe_code)]
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Linux CPU timing via clock_gettime */
 
 use libc::{CLOCK_THREAD_CPUTIME_ID, clock_gettime, timespec};
 use std::sync::atomic::{AtomicU64, Ordering};

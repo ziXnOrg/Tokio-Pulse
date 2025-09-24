@@ -1,9 +1,19 @@
-//! Preemption system for Tokio runtime.
-
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 #![warn(rust_2018_idioms)]
-#![deny(unsafe_code)]
+// Note: unsafe code is forbidden in all modules except timing modules where OS APIs require it
+
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Preemption system for Tokio runtime */
 
 pub mod budget;
 pub mod hooks;

@@ -1,10 +1,16 @@
-//! Cross-platform CPU time measurement.
-//!
-//! Platform implementations:
-//! - Linux: clock_gettime(CLOCK_THREAD_CPUTIME_ID)
-//! - Windows: QueryThreadCycleTime
-//! - macOS: thread_info(THREAD_BASIC_INFO)
-//! - Fallback: std::time::Instant
+#![allow(unsafe_code)] /* OS-level timing APIs require unsafe */
+
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Cross-platform CPU time measurement */
 
 use std::fmt;
 use thiserror::Error;

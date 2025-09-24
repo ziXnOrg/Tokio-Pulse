@@ -1,7 +1,16 @@
-//! Task budget management for preemptive yielding.
-//!
-//! Implements reduction-based preemption inspired by BEAM/Erlang's 4000-reduction model.
-//! Each task receives an operation budget that decrements on poll operations.
+#![forbid(unsafe_code)]
+
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Task budget management for preemptive yielding */
 
 use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 

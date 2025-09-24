@@ -1,23 +1,16 @@
-//! Fallback CPU time measurement using `std::time::Instant`
-//!
-//! This implementation uses the standard library's `Instant` for platforms
-//! where native CPU time measurement is not available. Note that this measures
-//! wall-clock time, not actual CPU time, which can lead to inaccurate results
-//! when threads are blocked or preempted.
-//!
-//! # Performance
-//!
-//! - Overhead: ~50-200ns per measurement (platform-dependent)
-//! - Resolution: Platform-dependent (typically microsecond to nanosecond)
-//! - Accuracy: Measures wall time, not CPU time
-//!
-//! # Limitations
-//!
-//! This fallback implementation has significant limitations:
-//! - Measures wall time instead of CPU time
-//! - Includes time when the thread is blocked or waiting
-//! - Not suitable for accurate CPU usage measurement
-//! - Should only be used when no platform-specific timer is available
+#![forbid(unsafe_code)]
+
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Fallback timer using std::time::Instant (wall time, not CPU time) */
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;

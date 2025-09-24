@@ -1,7 +1,18 @@
-//! Multi-tier task management for preemption control.
-
+#![forbid(unsafe_code)]
 #![allow(clippy::significant_drop_tightening)]  /* RwLock guards are held for short durations */
 #![allow(clippy::trivially_copy_pass_by_ref)]   /* TaskId references are more idiomatic */
+
+/**
+ *     ______   __  __     __         ______     ______
+ *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+ *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+ *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+ *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+ *
+ * Author: Colin MacRitchie / Ripple Group
+ */
+
+/* Multi-tier task management for preemption control */
 
 use crate::budget::TaskBudget;
 use crate::timing::create_cpu_timer;
