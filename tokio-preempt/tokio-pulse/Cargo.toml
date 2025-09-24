@@ -1,0 +1,118 @@
+[package]
+name = "tokio-pulse"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Tokio Pulse Contributors"]
+description = "Production-ready preemption system for Tokio async runtime"
+documentation = "https://docs.rs/tokio-pulse"
+repository = "https://github.com/ziXnOrg/Tokio-Pulse"
+license = "MIT OR Apache-2.0"
+keywords = ["async", "tokio", "preemption", "scheduling", "runtime"]
+categories = ["asynchronous", "concurrency", "development-tools"]
+readme = "README.md"
+
+[dependencies]
+# Core async runtime - using our forked version with preemption hooks
+tokio = { path = "../../tokio-fork/tokio", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
+
+# Atomic and concurrent data structures
+crossbeam = "0.8"
+dashmap = "6.0"
+parking_lot = "0.12"
+
+# Metrics and observability
+metrics = { version = "0.23", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Platform-specific dependencies
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_Threading", "Win32_System_Performance"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+mach2 = "0.4"
+
+[dev-dependencies]
+# Testing
+tokio-test = "0.4"
+proptest = "1.5"
+quickcheck = "1.0"
+pretty_assertions = "1.4"
+
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports", "cargo_bench_support"] }
+pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
+
+# Debugging and analysis
+console-subscriber = "0.4"
+tokio-metrics = "0.3"
+
+# Documentation examples
+doc-comment = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = false
+debug-assertions = false
+overflow-checks = false
+panic = "abort"
+strip = true
+
+[profile.bench]
+inherits = "release"
+debug = true
+strip = false
+
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+
+[profile.test]
+opt-level = 2
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+
+[[bench]]
+name = "cpu_timing"
+harness = false
+
+[features]
+default = ["metrics", "tracing"]
+metrics = ["dep:metrics"]
+tracing = ["dep:tracing", "dep:tracing-subscriber"]
+tokio_unstable = []
+nightly = []
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+missing_safety_doc = "forbid"
+undocumented_unsafe_blocks = "forbid"
+multiple_crate_versions = "allow"

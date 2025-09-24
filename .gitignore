@@ -1,0 +1,47 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug files
+*.pdb
+
+# Benchmark results
+*.bench
+
+# Coverage reports
+*.profraw
+*.profdata
+coverage/
+tarpaulin-report.html
+
+# Documentation build
+doc/
+
+# Backup files
+*.bak
+*.backup
+
+# Test data
+*.test
+
+# OS specific
+Thumbs.db
+desktop.ini
+
+# Python cache (for any scripts)
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+
+# Research documents (keep locally but don't commit)
+*.pdf

@@ -1,0 +1,4 @@
+[submodule "tokio-fork"]
+	path = tokio-fork
+	url = https://github.com/tokio-rs/tokio.git
+	branch = master

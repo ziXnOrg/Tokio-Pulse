@@ -1,0 +1,64 @@
+[workspace]
+members = [
+    "tokio-preempt/tokio-pulse",
+    "tokio-fork/tokio",
+    "tokio-fork/tokio-macros",
+    "tokio-fork/tokio-util",
+]
+
+# Use resolver 2 for better dependency resolution
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75"
+authors = ["Tokio-Pulse Contributors"]
+license = "MIT"
+repository = "https://github.com/your-org/tokio-pulse"
+
+[workspace.dependencies]
+# Share common dependencies across the workspace
+tokio = { path = "tokio-fork/tokio", features = ["full"] }
+tokio-pulse = { path = "tokio-preempt/tokio-pulse" }
+tokio-macros = { path = "tokio-fork/tokio-macros" }
+tokio-util = { path = "tokio-fork/tokio-util" }
+
+# Common dependencies
+anyhow = "1.0.100"
+thiserror = "1.0.69"
+tracing = "0.1.41"
+parking_lot = "0.12.4"
+dashmap = "6.1.0"
+crossbeam = "0.8.4"
+
+# Testing dependencies
+criterion = "0.5.1"
+proptest = "1.8.0"
+quickcheck = "1.0.3"
+
+[profile.dev]
+# Optimize dev builds for faster iteration
+opt-level = 1
+
+[profile.release]
+# Production optimizations
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = false
+strip = "symbols"
+
+[profile.bench]
+# Benchmarking optimizations
+inherits = "release"
+debug = true
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+
+[workspace.lints.clippy]
+# Disallow methods that are likely erroneous
+await_holding_lock = "warn"
+# Rustdoc lints
+broken_intra_doc_links = "warn"
+private_intra_doc_links = "warn"
