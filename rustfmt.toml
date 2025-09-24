@@ -1,0 +1,89 @@
+# Elite Rust Formatting Standards
+# Production-grade formatting for high-performance systems
+
+# Line width
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+
+# Comments
+comment_width = 80
+wrap_comments = true
+normalize_comments = true
+normalize_doc_attributes = true
+
+# Imports
+imports_granularity = "Crate"
+imports_layout = "HorizontalVertical"
+group_imports = "StdExternalCrate"
+reorder_imports = true
+reorder_modules = true
+
+# Code style
+use_field_init_shorthand = true
+use_try_shorthand = true
+format_code_in_doc_comments = true
+format_macro_matchers = true
+format_macro_bodies = true
+format_strings = true
+
+# Alignment
+enum_discrim_align_threshold = 20
+struct_field_align_threshold = 20
+
+# Control flow
+control_brace_style = "AlwaysSameLine"
+brace_style = "SameLineWhere"
+indent_style = "Block"
+
+# Functions
+fn_params_layout = "Tall"
+fn_call_width = 80
+
+# Chains
+chain_width = 80
+single_line_if_else_max_width = 80
+
+# Error handling
+overflow_delimited_expr = true
+error_on_line_overflow = false
+error_on_unformatted = false
+
+# Match expressions
+match_arm_leading_pipes = "Never"
+match_block_trailing_comma = true
+
+# Structs and enums
+struct_lit_single_line = true
+enum_variant_single_line = true
+where_single_line = false
+
+# Spacing
+space_after_colon = true
+space_before_colon = false
+spaces_around_ranges = false
+
+# Miscellaneous
+inline_attribute_width = 0
+blank_lines_upper_bound = 1
+blank_lines_lower_bound = 0
+edition = "2021"
+version = "Two"
+unstable_features = true
+
+# Feature flags for nightly formatting options
+binop_separator = "Front"
+combine_control_expr = true
+condense_wildcard_suffixes = true
+format_generated_files = false
+hex_literal_case = "Lower"
+imports_indent = "Block"
+match_arm_blocks = true
+newline_style = "Unix"
+remove_nested_parens = true
+reorder_impl_items = true
+short_array_element_width_threshold = 10
+skip_children = false
+trailing_comma = "Vertical"
+trailing_semicolon = false
+use_small_heuristics = "Default"
