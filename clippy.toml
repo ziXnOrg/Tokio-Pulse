@@ -9,7 +9,6 @@ type-complexity-threshold = 250
 single-char-binding-names-threshold = 3
 
 # Documentation
-missing-docs-in-crate-items = true
 doc-valid-idents = ["tokio-pulse", "TaskBudget", "TierManager", "CPU", "macOS", "eBPF", "NaN"]
 
 # Numeric thresholds
@@ -51,13 +50,8 @@ allow-print-in-tests = true
 allow-unwrap-in-tests = true
 allow-panic-in-tests = true
 
-# Pattern matching
-single-char-binding-names = ["x", "y", "i", "j", "k", "n", "_"]
-unreadable-literal-threshold = 1000000
-
 # Module and crate configuration
-missing-trait-methods = true
-module-name-repetitions-threshold = 2
+missing-docs-in-crate-items = true
 
 # Miscellaneous
 standard-macro-braces = [

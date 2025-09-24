@@ -22,9 +22,9 @@ dashmap = "6.0"
 parking_lot = "0.12"
 
 # Metrics and observability
-metrics = "0.23"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = { version = "0.23", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 
 # Error handling
 thiserror = "1.0"
@@ -88,23 +88,20 @@ debug-assertions = true
 overflow-checks = true
 incremental = true
 
-[[bench]]
-name = "budget_overhead"
-harness = false
-
-[[bench]]
-name = "tier_manager"
-harness = false
-
-[[bench]]
-name = "cpu_timing"
-harness = false
+# Benchmarks will be added as we implement each module
+# [[bench]]
+# name = "budget_overhead"
+# harness = false
+#
+# [[bench]]
+# name = "cpu_timing"
+# harness = false
 
 [features]
 default = ["metrics", "tracing"]
 metrics = ["dep:metrics"]
 tracing = ["dep:tracing", "dep:tracing-subscriber"]
-tokio_unstable = ["tokio/unstable"]
+tokio_unstable = []
 nightly = []
 
 [lints.rust]
@@ -112,10 +109,10 @@ unsafe_code = "forbid"
 missing_docs = "warn"
 
 [lints.clippy]
-all = "warn"
-pedantic = "warn"
-nursery = "warn"
-cargo = "warn"
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
 panic = "warn"
@@ -123,3 +120,4 @@ todo = "warn"
 unimplemented = "warn"
 missing_safety_doc = "forbid"
 undocumented_unsafe_blocks = "forbid"
+multiple_crate_versions = "allow"
