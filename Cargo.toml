@@ -14,7 +14,7 @@ edition = "2021"
 rust-version = "1.75"
 authors = ["Tokio-Pulse Contributors"]
 license = "MIT"
-repository = "https://github.com/your-org/tokio-pulse"
+repository = "https://github.com/ziXnOrg/Tokio-Pulse"
 
 [workspace.dependencies]
 # Share common dependencies across the workspace

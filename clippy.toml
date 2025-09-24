@@ -1,0 +1,66 @@
+# Elite Clippy Configuration
+# Production-grade linting for high-performance systems
+
+# Cognitive complexity threshold
+cognitive-complexity-threshold = 30
+too-many-arguments-threshold = 7
+too-many-lines-threshold = 400
+type-complexity-threshold = 250
+single-char-binding-names-threshold = 3
+
+# Documentation
+doc-valid-idents = ["tokio-pulse", "TaskBudget", "TierManager", "CPU", "macOS", "eBPF", "NaN"]
+
+# Numeric thresholds
+excessive-nesting-threshold = 5
+enum-variant-name-threshold = 3
+struct-field-name-threshold = 3
+large-error-threshold = 128
+trivial-copy-size-limit = 16
+
+# Style preferences
+avoid-breaking-exported-api = true
+allow-dbg-in-tests = true
+disallowed-names = ["foo", "bar", "baz", "tmp", "temp", "test", "dummy"]
+
+# Performance and safety
+max-fn-params-bools = 2
+max-include-file-size = 1000000
+max-struct-bools = 3
+vec-box-size-threshold = 4096
+array-size-threshold = 512
+
+# Path configuration
+enforced-import-renames = [
+    { path = "std::io::Write", rename = "IoWrite" },
+    { path = "std::fmt::Write", rename = "FmtWrite" },
+]
+
+# Module restrictions
+allowed-scripts = ["Latin"]
+msrv = "1.75.0"
+
+# Async-specific
+future-size-threshold = 1024
+
+# Security and correctness
+warn-on-all-wildcard-imports = true
+allow-expect-in-tests = true
+allow-print-in-tests = true
+allow-unwrap-in-tests = true
+allow-panic-in-tests = true
+
+# Module and crate configuration
+missing-docs-in-crate-items = true
+
+# Miscellaneous
+standard-macro-braces = [
+    { name = "assert", brace = "(" },
+    { name = "assert_eq", brace = "(" },
+    { name = "assert_ne", brace = "(" },
+    { name = "debug_assert", brace = "(" },
+    { name = "format", brace = "(" },
+    { name = "print", brace = "(" },
+    { name = "println", brace = "(" },
+    { name = "vec", brace = "[" },
+]
