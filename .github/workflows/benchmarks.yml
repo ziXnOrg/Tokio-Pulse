@@ -1,0 +1,123 @@
+# Performance regression CI
+# Runs benchmarks on PRs and compares against baseline
+
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'tokio-preempt/**'
+      - 'tokio-fork/**'
+      - '.github/workflows/benchmarks.yml'
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUSTFLAGS: "-C target-cpu=native"
+
+jobs:
+  benchmark:
+    name: Run benchmarks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo build
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+    # Install dependencies for Linux
+    - name: Install Linux dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y linux-tools-common linux-tools-generic linux-tools-`uname -r`
+        echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+
+    # Run benchmarks
+    - name: Run benchmarks
+      run: |
+        cd tokio-preempt/tokio-pulse
+        cargo bench --no-run
+        cargo bench -- --save-baseline pr-${{ github.event.pull_request.number || 'main' }}
+
+    # Compare against baseline for PRs
+    - name: Compare benchmarks
+      if: github.event_name == 'pull_request'
+      run: |
+        cd tokio-preempt/tokio-pulse
+        cargo bench -- --baseline main --save-baseline pr-${{ github.event.pull_request.number }}
+
+    # Upload benchmark results
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results-${{ matrix.os }}
+        path: tokio-preempt/tokio-pulse/target/criterion
+
+    # Check performance requirements
+    - name: Validate performance requirements
+      run: |
+        cd tokio-preempt/tokio-pulse
+        python3 .github/scripts/check_perf.py
+
+  benchmark-comment:
+    name: Comment benchmark results
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download benchmark results
+      uses: actions/download-artifact@v3
+      with:
+        path: benchmark-results
+
+    - name: Generate performance report
+      run: |
+        python3 .github/scripts/generate_report.py benchmark-results > report.md
+
+    - name: Comment PR
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('report.md', 'utf8');
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });

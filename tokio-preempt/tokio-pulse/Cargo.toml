@@ -92,6 +92,18 @@ incremental = true
 name = "cpu_timing"
 harness = false
 
+[[bench]]
+name = "hooks"
+harness = false
+
+[[bench]]
+name = "budget"
+harness = false
+
+[[bench]]
+name = "tier_manager"
+harness = false
+
 [features]
 default = ["metrics", "tracing"]
 metrics = ["dep:metrics"]

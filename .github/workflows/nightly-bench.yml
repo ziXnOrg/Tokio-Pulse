@@ -1,0 +1,132 @@
+name: Nightly Benchmarks
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-C target-cpu=native"
+
+jobs:
+  benchmark:
+    name: Nightly Performance Benchmarks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Rust stable
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    # Linux-specific setup
+    - name: Setup Linux performance counters
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y linux-tools-common linux-tools-generic
+        echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+        echo 2 | sudo tee /sys/devices/cpu/rdpmc
+
+    # macOS-specific setup
+    - name: Setup macOS
+      if: runner.os == 'macOS'
+      run: |
+        # Disable CPU throttling on macOS
+        sudo pmset -a powernap 0
+        sudo pmset -a disksleep 0
+
+    # Windows-specific setup
+    - name: Setup Windows
+      if: runner.os == 'Windows'
+      run: |
+        # Set high performance power plan
+        powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+
+    - name: Run comprehensive benchmarks
+      run: |
+        cd tokio-preempt/tokio-pulse
+        cargo bench --all-features -- --save-baseline nightly-$(date +%Y%m%d)
+
+    - name: Generate performance report
+      run: |
+        cd tokio-preempt/tokio-pulse
+        python3 .github/scripts/check_perf.py > perf-report-${{ matrix.os }}.txt
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: nightly-bench-${{ matrix.os }}-$(date +%Y%m%d)
+        path: |
+          tokio-preempt/tokio-pulse/target/criterion
+          perf-report-${{ matrix.os }}.txt
+        retention-days: 90
+
+  analyze:
+    name: Analyze Performance Trends
+    runs-on: ubuntu-latest
+    needs: benchmark
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install pandas matplotlib seaborn
+
+    - name: Analyze trends
+      run: |
+        python3 .github/scripts/analyze_trends.py
+
+    - name: Upload analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-analysis
+        path: performance-trends.html
+        retention-days: 365
+
+  notify:
+    name: Notify on regression
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: failure()
+
+    steps:
+    - name: Create issue
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const date = new Date().toISOString().split('T')[0];
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `Performance Regression Detected - ${date}`,
+            body: `A performance regression was detected in the nightly benchmark run.
+
+            Please review the [workflow run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.
+
+            Key areas to investigate:
+            - Recent PRs merged to main
+            - Changes to critical path code
+            - Dependency updates`,
+            labels: ['performance', 'regression', 'P0']
+          });
