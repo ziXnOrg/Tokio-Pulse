@@ -9,7 +9,7 @@
 #![warn(rust_2018_idioms)]
 // Note: unsafe code is forbidden in all modules except timing modules where OS APIs require it
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\

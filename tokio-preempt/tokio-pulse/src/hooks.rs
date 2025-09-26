@@ -2,7 +2,7 @@
 #![allow(unsafe_code)]
 #![allow(clippy::inline_always)] /* Performance-critical */
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\

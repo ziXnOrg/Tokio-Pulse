@@ -2,7 +2,7 @@
 #![allow(clippy::significant_drop_tightening)] /* RwLock guards are held for short durations */
 #![allow(clippy::trivially_copy_pass_by_ref)] /* TaskId references are more idiomatic */
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
