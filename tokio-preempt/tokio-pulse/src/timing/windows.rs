@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Windows CPU time via QueryThreadCycleTime */
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use windows_sys::Win32::System::{
     Performance::QueryPerformanceFrequency,

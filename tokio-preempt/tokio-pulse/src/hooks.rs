@@ -11,13 +11,11 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Runtime hooks for preemption control */
-
 use crate::tier_manager::{PollResult, TaskContext, TaskId};
 use std::ptr;
-use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicPtr, Ordering};
 use std::time::Duration;
 
 /// Preemption hook interface.
@@ -61,13 +59,13 @@ impl PreemptionHooks for NullHooks {
     }
 }
 
-/* Lock-free hook registry using AtomicPtr for minimal overhead */
+/// Lock-free hook registry using AtomicPtr for minimal overhead
 pub struct HookRegistry {
     hooks: AtomicPtr<Arc<dyn PreemptionHooks>>,
 }
 
 impl HookRegistry {
-    /* Create new registry */
+    /// Create new registry
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -75,7 +73,7 @@ impl HookRegistry {
         }
     }
 
-    /* Install hooks */
+    /// Install hooks, returning any previously set hooks
     pub fn set_hooks(&self, hooks: Arc<dyn PreemptionHooks>) -> Option<Arc<dyn PreemptionHooks>> {
         let new_ptr = Box::into_raw(Box::new(hooks));
         let old_ptr = self.hooks.swap(new_ptr, Ordering::AcqRel);
@@ -88,7 +86,7 @@ impl HookRegistry {
         }
     }
 
-    /* Remove hooks */
+    /// Remove hooks, returning the removed hooks if any
     pub fn clear_hooks(&self) -> Option<Arc<dyn PreemptionHooks>> {
         let old_ptr = self.hooks.swap(ptr::null_mut(), Ordering::AcqRel);
 
@@ -100,7 +98,7 @@ impl HookRegistry {
         }
     }
 
-    /* Pre-poll hook */
+    /// Invoke before_poll hook if registered
     #[inline(always)]
     pub fn before_poll(&self, task_id: TaskId, context: &TaskContext) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -111,7 +109,7 @@ impl HookRegistry {
         }
     }
 
-    /* Post-poll hook */
+    /// Invoke after_poll hook if registered
     #[inline(always)]
     pub fn after_poll(&self, task_id: TaskId, result: PollResult, duration: Duration) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -122,7 +120,7 @@ impl HookRegistry {
         }
     }
 
-    /* Yield hook */
+    /// Invoke on_yield hook if registered
     #[inline(always)]
     pub fn on_yield(&self, task_id: TaskId) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -133,7 +131,7 @@ impl HookRegistry {
         }
     }
 
-    /* Completion hook */
+    /// Invoke on_completion hook if registered
     #[inline(always)]
     pub fn on_completion(&self, task_id: TaskId) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -144,7 +142,7 @@ impl HookRegistry {
         }
     }
 
-    /* Check if hooks installed */
+    /// Check if hooks are installed
     #[inline]
     pub fn has_hooks(&self) -> bool {
         !self.hooks.load(Ordering::Acquire).is_null()

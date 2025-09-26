@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Linux CPU timing via clock_gettime */
-
 use libc::{CLOCK_THREAD_CPUTIME_ID, clock_gettime, timespec};
 use std::sync::atomic::{AtomicU64, Ordering};
 

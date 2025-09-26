@@ -7,10 +7,8 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Benchmarks for tier manager operations */
-
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -202,19 +200,11 @@ fn bench_tier_promotion(c: &mut Criterion) {
             manager.before_poll(task_id, &context);
 
             /* Simulate slow poll - trigger warning tier */
-            manager.after_poll(
-                task_id,
-                PollResult::Pending,
-                Duration::from_millis(15),
-            );
+            manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(15));
 
             /* Another slow poll - trigger yield tier */
             manager.before_poll(task_id, &context);
-            manager.after_poll(
-                task_id,
-                PollResult::Pending,
-                Duration::from_millis(60),
-            );
+            manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(60));
 
             /* Clean up */
             manager.on_completion(task_id);
@@ -288,11 +278,7 @@ fn bench_memory_usage(c: &mut Criterion) {
                             priority: None,
                         };
                         manager.before_poll(task_id, &context);
-                        manager.after_poll(
-                            task_id,
-                            PollResult::Ready,
-                            Duration::from_nanos(100),
-                        );
+                        manager.after_poll(task_id, PollResult::Ready, Duration::from_nanos(100));
                     }
                     black_box(manager.metrics().active_tasks);
                 });
@@ -319,11 +305,7 @@ fn bench_slow_queue_operations(c: &mut Criterion) {
                 };
                 manager.before_poll(task_id, &context);
                 /* Trigger slow task detection */
-                manager.after_poll(
-                    task_id,
-                    PollResult::Pending,
-                    Duration::from_millis(150),
-                );
+                manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(150));
             }
         });
     });
@@ -338,11 +320,7 @@ fn bench_slow_queue_operations(c: &mut Criterion) {
                 priority: None,
             };
             manager.before_poll(task_id, &context);
-            manager.after_poll(
-                task_id,
-                PollResult::Pending,
-                Duration::from_millis(150),
-            );
+            manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(150));
         }
 
         b.iter(|| {

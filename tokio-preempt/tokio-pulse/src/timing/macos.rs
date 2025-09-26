@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* macOS CPU time via thread_info */
-
 use libc::{thread_basic_info, thread_info, thread_info_t};
 use mach2::kern_return::KERN_SUCCESS;
 use mach2::message::mach_msg_type_number_t;

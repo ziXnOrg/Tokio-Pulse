@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
-#![allow(clippy::significant_drop_tightening)]  /* RwLock guards are held for short durations */
-#![allow(clippy::trivially_copy_pass_by_ref)]   /* TaskId references are more idiomatic */
+#![allow(clippy::significant_drop_tightening)] /* RwLock guards are held for short durations */
+#![allow(clippy::trivially_copy_pass_by_ref)] /* TaskId references are more idiomatic */
 
 /**
  *     ______   __  __     __         ______     ______
@@ -11,137 +11,143 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Multi-tier task management for preemption control */
-
 use crate::budget::TaskBudget;
 use crate::timing::create_cpu_timer;
 use crossbeam::queue::SegQueue;
 use dashmap::DashMap;
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-/* Task identifier */
+/// Task identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TaskId(pub u64);
 
-/* Tier management configuration */
+/// Tier management configuration
 #[derive(Debug, Clone)]
 pub struct TierConfig {
-    /* Poll operations per budget window */
+    /// Poll operations per budget window
     pub poll_budget: u32,
 
-    /* CPU time budget (ms) */
+    /// CPU time budget (ms)
     pub cpu_ms_budget: u64,
 
-    /* Forced yield interval */
+    /// Forced yield interval
     pub yield_interval: u32,
 
-    /* Tier intervention policies */
+    /// Tier intervention policies
     pub tier_policies: [TierPolicy; 4],
 
-    /* Enable OS isolation for Tier 3 */
+    /// Enable OS isolation for Tier 3
     pub enable_isolation: bool,
 
-    /* Max slow queue size */
+    /// Max slow queue size
     pub max_slow_queue_size: usize,
 
-    /* Hysteresis: min duration between promotions (ms) */
+    /// Hysteresis: min duration between promotions (ms)
     pub promotion_hysteresis_ms: u64,
 
-    /* Hysteresis: min duration between demotions (ms) */
+    /// Hysteresis: min duration between demotions (ms)
     pub demotion_hysteresis_ms: u64,
 
-    /* Cooldown: violation rate threshold (violations per second) */
+    /// Cooldown: violation rate threshold (violations per second)
     pub violation_rate_threshold: f64,
 
-    /* Cooldown: duration after rapid violations (ms) */
+    /// Cooldown: duration after rapid violations (ms)
     pub cooldown_duration_ms: u64,
 }
 
 impl Default for TierConfig {
     fn default() -> Self {
         Self {
-            poll_budget: 2000,  /* BEAM-inspired reduction count */
+            poll_budget: 2000,   /* BEAM-inspired reduction count */
             cpu_ms_budget: 10,   /* 10ms CPU time window */
             yield_interval: 100, /* Forced yield interval */
             tier_policies: [
                 TierPolicy {
                     name: "Monitor",
-                    promotion_threshold: 5,  /* 5 violations to promote */
+                    promotion_threshold: 5, /* 5 violations to promote */
                     action: InterventionAction::Monitor,
                 },
                 TierPolicy {
                     name: "Warn",
-                    promotion_threshold: 3,  /* 3 violations to promote */
+                    promotion_threshold: 3, /* 3 violations to promote */
                     action: InterventionAction::Warn,
                 },
                 TierPolicy {
                     name: "Yield",
-                    promotion_threshold: 2,  /* 2 violations to promote */
+                    promotion_threshold: 2, /* 2 violations to promote */
                     action: InterventionAction::Yield,
                 },
                 TierPolicy {
                     name: "Isolate",
-                    promotion_threshold: u32::MAX,  /* Terminal tier */
+                    promotion_threshold: u32::MAX, /* Terminal tier */
                     action: InterventionAction::Isolate,
                 },
             ],
             enable_isolation: false,
             max_slow_queue_size: 10000,
-            promotion_hysteresis_ms: 100,  /* 100ms min between promotions */
-            demotion_hysteresis_ms: 500,   /* 500ms min between demotions */
+            promotion_hysteresis_ms: 100, /* 100ms min between promotions */
+            demotion_hysteresis_ms: 500,  /* 500ms min between demotions */
             violation_rate_threshold: 10.0, /* 10 violations/sec triggers cooldown */
-            cooldown_duration_ms: 1000,     /* 1 second cooldown after rapid violations */
+            cooldown_duration_ms: 1000,   /* 1 second cooldown after rapid violations */
         }
     }
 }
 
-/* Policy for intervention tiers */
+/// Policy for intervention tiers
 #[derive(Debug, Clone)]
 pub struct TierPolicy {
-    /* Tier name */
+    /// Tier name
     pub name: &'static str,
 
-    /* Violations before promotion */
+    /// Violations before promotion
     pub promotion_threshold: u32,
 
-    /* Intervention action */
+    /// Intervention action
     pub action: InterventionAction,
 }
 
-/* Intervention actions for tier system */
+/// Intervention actions for tier system
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterventionAction {
-    Monitor,    /* No intervention */
-    Warn,       /* Log warnings */
-    Yield,      /* Force yield */
-    SlowQueue,  /* Move to slow queue */
-    Isolate,    /* OS-level isolation */
+    /// No intervention
+    Monitor,
+    /// Log warnings
+    Warn,
+    /// Force yield
+    Yield,
+    /// Move to slow queue
+    SlowQueue,
+    /// OS-level isolation
+    Isolate,
 }
 
-/* Poll operation result */
+/// Poll operation result
 #[derive(Debug, Clone, Copy)]
 pub enum PollResult {
-    Ready,     /* Task completed */
-    Pending,   /* Task continues */
-    Panicked,  /* Task panic */
+    /// Task completed
+    Ready,
+    /// Task continues
+    Pending,
+    /// Task panic
+    Panicked,
 }
 
 /* Per-task state tracking */
 #[derive(Debug)]
 struct TaskState {
-    budget: Arc<TaskBudget>,           /* Shared budget tracker */
-    current_tier: AtomicU32,           /* Tier level (0-3) */
-    violation_count: AtomicU32,        /* Budget violations */
-    total_cpu_ns: AtomicU64,          /* CPU time (ns) */
-    last_poll_time: RwLock<Instant>,  /* Last poll timestamp */
-    slow_poll_count: AtomicU32,       /* Consecutive slow polls */
-    force_yield: AtomicU32,           /* Yield flag */
-    last_tier_change: RwLock<Instant>, /* Hysteresis: last tier change time */
-    pending_tier_change: AtomicU32,    /* Hysteresis: pending tier (u32::MAX = none) */
+    budget: Arc<TaskBudget>,                 /* Shared budget tracker */
+    current_tier: AtomicU32,                 /* Tier level (0-3) */
+    violation_count: AtomicU32,              /* Budget violations */
+    total_cpu_ns: AtomicU64,                 /* CPU time (ns) */
+    last_poll_time: RwLock<Instant>,         /* Last poll timestamp */
+    slow_poll_count: AtomicU32,              /* Consecutive slow polls */
+    force_yield: AtomicU32,                  /* Yield flag */
+    last_tier_change: RwLock<Instant>,       /* Hysteresis: last tier change time */
+    pending_tier_change: AtomicU32,          /* Hysteresis: pending tier (u32::MAX = none) */
     cooldown_until: RwLock<Option<Instant>>, /* Cooldown: no tier changes until this time */
     recent_violations: RwLock<Vec<Instant>>, /* Recent violation timestamps for rate tracking */
 }
@@ -165,8 +171,7 @@ impl TaskState {
 
     #[inline]
     fn should_yield(&self) -> bool {
-        self.force_yield.load(Ordering::Acquire) > 0
-            || self.budget.is_exhausted()
+        self.force_yield.load(Ordering::Acquire) > 0 || self.budget.is_exhausted()
     }
 
     #[inline]
@@ -182,7 +187,7 @@ impl TaskState {
     fn try_escalate_tier(&self, hysteresis_ms: u64) -> Option<u32> {
         let current = self.current_tier.load(Ordering::Acquire);
         if current >= 3 {
-            return None;  /* Already at max tier */
+            return None; /* Already at max tier */
         }
 
         let now = Instant::now();
@@ -190,7 +195,7 @@ impl TaskState {
         /* Check if in cooldown period */
         if let Some(cooldown_end) = *self.cooldown_until.read() {
             if now < cooldown_end {
-                return None;  /* Still in cooldown */
+                return None; /* Still in cooldown */
             }
         }
 
@@ -217,7 +222,7 @@ impl TaskState {
     fn try_demote_tier(&self, hysteresis_ms: u64) -> Option<u32> {
         let current = self.current_tier.load(Ordering::Acquire);
         if current == 0 {
-            return None;  /* Already at min tier */
+            return None; /* Already at min tier */
         }
 
         let now = Instant::now();
@@ -225,7 +230,7 @@ impl TaskState {
         /* Check if in cooldown period */
         if let Some(cooldown_end) = *self.cooldown_until.read() {
             if now < cooldown_end {
-                return None;  /* Still in cooldown */
+                return None; /* Still in cooldown */
             }
         }
 
@@ -252,7 +257,7 @@ impl TaskState {
     fn check_pending_tier_change(&self, promotion_hysteresis_ms: u64, demotion_hysteresis_ms: u64) {
         let pending = self.pending_tier_change.load(Ordering::Acquire);
         if pending == u32::MAX {
-            return;  /* No pending change */
+            return; /* No pending change */
         }
 
         let current = self.current_tier.load(Ordering::Acquire);
@@ -314,24 +319,26 @@ impl TaskState {
     }
 }
 
-/* Task execution context */
+/// Task execution context
 #[derive(Debug, Clone)]
 pub struct TaskContext {
-    pub worker_id: usize,      /* Worker thread ID */
-    pub priority: Option<u8>,  /* Task priority */
+    /// Worker thread ID
+    pub worker_id: usize,
+    /// Task priority
+    pub priority: Option<u8>,
 }
 
 /* Worker thread statistics */
 #[allow(dead_code)]
 #[derive(Debug, Default)]
 struct WorkerStats {
-    polls_processed: AtomicU64,   /* Total polls */
-    yields_forced: AtomicU64,     /* Forced yields */
-    tier_promotions: AtomicU64,   /* Tier promotions */
-    tier_demotions: AtomicU64,    /* Tier demotions */
+    polls_processed: AtomicU64, /* Total polls */
+    yields_forced: AtomicU64,   /* Forced yields */
+    tier_promotions: AtomicU64, /* Tier promotions */
+    tier_demotions: AtomicU64,  /* Tier demotions */
 }
 
-/* Main tier management coordinator */
+/// Main tier management coordinator
 pub struct TierManager {
     config: Arc<RwLock<TierConfig>>,
     task_states: DashMap<TaskId, Arc<TaskState>>,
@@ -364,15 +371,10 @@ impl TierManager {
         self.global_polls.fetch_add(1, Ordering::Relaxed);
 
         /* Get or create task state */
-        let state = self
-            .task_states
-            .entry(task_id)
-            .or_insert_with(|| {
-                let config = self.config.read();
-                Arc::new(TaskState::new(Arc::new(TaskBudget::new(
-                    config.poll_budget,
-                ))))
-            });
+        let state = self.task_states.entry(task_id).or_insert_with(|| {
+            let config = self.config.read();
+            Arc::new(TaskState::new(Arc::new(TaskBudget::new(config.poll_budget))))
+        });
 
         /* Update poll timestamp */
         *state.last_poll_time.write() = Instant::now();
@@ -386,12 +388,7 @@ impl TierManager {
     }
 
     /* Post-poll hook */
-    pub fn after_poll(
-        &self,
-        task_id: TaskId,
-        result: PollResult,
-        poll_duration: Duration,
-    ) {
+    pub fn after_poll(&self, task_id: TaskId, result: PollResult, poll_duration: Duration) {
         let Some(state) = self.task_states.get(&task_id) else {
             return;
         };
@@ -408,7 +405,10 @@ impl TierManager {
 
         /* Check for pending tier changes (hysteresis expired) */
         let config = self.config.read();
-        state.check_pending_tier_change(config.promotion_hysteresis_ms, config.demotion_hysteresis_ms);
+        state.check_pending_tier_change(
+            config.promotion_hysteresis_ms,
+            config.demotion_hysteresis_ms,
+        );
 
         /* Consume budget */
         if state.budget.consume() {
@@ -512,9 +512,7 @@ impl TierManager {
         let action = config.tier_policies[current_tier as usize].action;
 
         match action {
-            InterventionAction::Monitor => {
-                /* No action */
-            }
+            InterventionAction::Monitor => { /* No action */ },
             InterventionAction::Warn => {
                 #[cfg(feature = "tracing")]
                 tracing::warn!(task_id = ?task_id, tier = current_tier,
@@ -522,7 +520,7 @@ impl TierManager {
 
                 #[cfg(feature = "metrics")]
                 metrics::counter!("tokio_pulse.intervention.warn").increment(1);
-            }
+            },
             InterventionAction::Yield => {
                 state.mark_for_yield();
 
@@ -531,7 +529,7 @@ impl TierManager {
 
                 #[cfg(feature = "metrics")]
                 metrics::counter!("tokio_pulse.intervention.yield").increment(1);
-            }
+            },
             InterventionAction::SlowQueue => {
                 /* Add to slow queue */
                 if self.slow_queue_size.load(Ordering::Acquire) < config.max_slow_queue_size {
@@ -544,7 +542,7 @@ impl TierManager {
                     #[cfg(feature = "metrics")]
                     metrics::counter!("tokio_pulse.intervention.slow_queue").increment(1);
                 }
-            }
+            },
             InterventionAction::Isolate => {
                 if config.enable_isolation {
                     self.isolate_task(task_id);
@@ -556,12 +554,12 @@ impl TierManager {
 
                 #[cfg(feature = "metrics")]
                 metrics::counter!("tokio_pulse.intervention.isolate").increment(1);
-            }
+            },
         }
     }
 
     /* OS-specific task isolation */
-    #[allow(clippy::unused_self)]  /* Future implementation */
+    #[allow(clippy::unused_self)] /* Future implementation */
     fn isolate_task(&self, task_id: &TaskId) {
         #[cfg(target_os = "linux")]
         {
@@ -631,14 +629,19 @@ impl TierManager {
     }
 }
 
-/* TierManager metrics */
+/// TierManager metrics
 #[derive(Debug, Clone)]
 pub struct TierMetrics {
-    pub total_polls: u64,        /* Poll count */
-    pub total_violations: u64,   /* Violation count */
-    pub total_yields: u64,       /* Yield count */
-    pub active_tasks: usize,     /* Active task count */
-    pub slow_queue_size: usize,  /* Slow queue size */
+    /// Poll count
+    pub total_polls: u64,
+    /// Violation count
+    pub total_violations: u64,
+    /// Yield count
+    pub total_yields: u64,
+    /// Active task count
+    pub active_tasks: usize,
+    /// Slow queue size
+    pub slow_queue_size: usize,
 }
 
 /* Thread-local worker statistics */
@@ -688,7 +691,7 @@ mod tests {
 
         // Trigger rapid violations to activate cooldown
         for _ in 0..12 {
-            state.track_violation(10.0, 1000);  // 10 violations/sec threshold, 1 sec cooldown
+            state.track_violation(10.0, 1000); // 10 violations/sec threshold, 1 sec cooldown
         }
 
         // Should be in cooldown now
@@ -696,7 +699,7 @@ mod tests {
 
         // Try to escalate tier during cooldown
         let result = state.try_escalate_tier(0);
-        assert_eq!(result, None);  // Should fail due to cooldown
+        assert_eq!(result, None); // Should fail due to cooldown
 
         // Sleep to exceed cooldown period
         std::thread::sleep(Duration::from_millis(1100));
@@ -739,7 +742,7 @@ mod tests {
 
         // Test demotion hysteresis
         let result = state.try_demote_tier(500);
-        assert_eq!(result, None);  // Should be pending due to hysteresis
+        assert_eq!(result, None); // Should be pending due to hysteresis
         assert_eq!(state.pending_tier_change.load(Ordering::Acquire), 1);
     }
 

@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Cross-platform CPU time measurement */
-
 use std::fmt;
 use thiserror::Error;
 
@@ -79,7 +77,7 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     {
         match LinuxTimer::new() {
             Ok(mut timer) => {
-                let _ = timer.calibrate();  /* Ignore errors */
+                let _ = timer.calibrate(); /* Ignore errors */
                 Box::new(timer)
             },
             Err(_) => Box::new(FallbackTimer::new()),
@@ -90,7 +88,7 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     {
         match WindowsTimer::new() {
             Ok(mut timer) => {
-                let _ = timer.calibrate();  /* Ignore errors */
+                let _ = timer.calibrate(); /* Ignore errors */
                 Box::new(timer)
             },
             Err(_) => Box::new(FallbackTimer::new()),
@@ -101,7 +99,7 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     {
         match MacOsTimer::new() {
             Ok(mut timer) => {
-                let _ = timer.calibrate();  /* Ignore errors */
+                let _ = timer.calibrate(); /* Ignore errors */
                 Box::new(timer)
             },
             Err(_) => Box::new(FallbackTimer::new()),
@@ -117,10 +115,10 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
 /* Timer implementation info */
 #[derive(Debug, Clone)]
 pub struct TimerInfo {
-    pub platform: String,         /* Platform name */
-    pub overhead_ns: u64,         /* Expected overhead (ns) */
-    pub resolution_ns: u64,       /* Timer resolution (ns) */
-    pub measures_cpu_time: bool,  /* CPU vs wall time */
+    pub platform: String,        /* Platform name */
+    pub overhead_ns: u64,        /* Expected overhead (ns) */
+    pub resolution_ns: u64,      /* Timer resolution (ns) */
+    pub measures_cpu_time: bool, /* CPU vs wall time */
 }
 
 impl fmt::Display for TimerInfo {

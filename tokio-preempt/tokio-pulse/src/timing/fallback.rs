@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Fallback timer using std::time::Instant (wall time, not CPU time) */
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 

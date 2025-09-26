@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Task budget management for preemptive yielding */
-
 use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 
 /// Default budget allocation per task poll cycle.
@@ -27,13 +25,13 @@ pub const MAX_BUDGET: u32 = 10000;
 #[repr(C, align(16))]
 #[derive(Debug)]
 pub struct TaskBudget {
-    deadline_ns: AtomicU64,  /* CPU time deadline (ns) */
+    deadline_ns: AtomicU64, /* CPU time deadline (ns) */
 
-    remaining: AtomicU32,    /* Operations before yield */
+    remaining: AtomicU32, /* Operations before yield */
 
-    tier: AtomicU8,          /* Intervention tier (0-3) */
+    tier: AtomicU8, /* Intervention tier (0-3) */
 
-    _padding: [u8; 3],       /* Cache alignment */
+    _padding: [u8; 3], /* Cache alignment */
 }
 
 /* Compile-time size verification */

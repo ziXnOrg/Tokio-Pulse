@@ -7,11 +7,10 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 use crate::TaskId;
 use crossbeam::queue::SegQueue;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 /// Priority levels for slow queue processing
@@ -221,12 +220,12 @@ impl SlowQueue {
             TaskPriority::Critical => {
                 self.priority_queues[0].push(task.clone());
                 self.metrics.critical_enqueued.fetch_add(1, Ordering::Relaxed);
-            }
+            },
             priority => {
                 let idx = priority as usize;
                 self.priority_queues[idx].push(task.clone());
                 self.queue.push(task);
-            }
+            },
         }
 
         // Update metrics

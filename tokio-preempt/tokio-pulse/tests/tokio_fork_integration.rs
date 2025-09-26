@@ -1,14 +1,12 @@
 //! Integration test to verify tokio fork works with tokio-pulse
 
-use tokio_pulse::{HookRegistry, TierConfig, TierManager};
 use std::sync::Arc;
+use tokio_pulse::{HookRegistry, TierConfig, TierManager};
 
 #[tokio::test]
 async fn test_tokio_fork_basic_runtime() {
     // Verify we can create a basic tokio runtime
-    let result = tokio::spawn(async {
-        "Hello from forked Tokio!"
-    }).await;
+    let result = tokio::spawn(async { "Hello from forked Tokio!" }).await;
 
     assert_eq!(result.unwrap(), "Hello from forked Tokio!");
 }
