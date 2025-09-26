@@ -60,10 +60,26 @@ fn bench_tier_manager_creation(c: &mut Criterion) {
             cpu_ms_budget: 10,
             yield_interval: 100,
             tier_policies: [
-                TierPolicy::Monitor,
-                TierPolicy::Warn,
-                TierPolicy::Yield,
-                TierPolicy::Isolate,
+                TierPolicy {
+                    name: "Monitor",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Monitor,
+                },
+                TierPolicy {
+                    name: "Warn",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Warn,
+                },
+                TierPolicy {
+                    name: "Yield",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Yield,
+                },
+                TierPolicy {
+                    name: "Isolate",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Isolate,
+                },
             ],
             enable_isolation: false,
             max_slow_queue_size: 1000,
@@ -136,10 +152,26 @@ fn bench_tier_manager_operations(c: &mut Criterion) {
             cpu_ms_budget: 15,
             yield_interval: 150,
             tier_policies: [
-                TierPolicy::Monitor,
-                TierPolicy::Warn,
-                TierPolicy::Yield,
-                TierPolicy::Isolate,
+                TierPolicy {
+                    name: "Monitor",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Monitor,
+                },
+                TierPolicy {
+                    name: "Warn",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Warn,
+                },
+                TierPolicy {
+                    name: "Yield",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Yield,
+                },
+                TierPolicy {
+                    name: "Isolate",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Isolate,
+                },
             ],
             enable_isolation: false,
             max_slow_queue_size: 2000,
@@ -262,7 +294,7 @@ fn bench_memory_usage(c: &mut Criterion) {
                             Duration::from_nanos(100),
                         );
                     }
-                    black_box(manager.active_task_count());
+                    black_box(manager.metrics().active_tasks);
                 });
             },
         );

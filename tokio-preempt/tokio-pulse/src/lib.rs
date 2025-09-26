@@ -17,6 +17,7 @@
 
 pub mod budget;
 pub mod hooks;
+pub mod slow_queue;
 pub mod tier_manager;
 pub mod timing;
 
