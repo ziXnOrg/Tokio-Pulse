@@ -173,11 +173,11 @@ mod tests {
     fn test_fallback_timer_measurement() {
         let timer = FallbackTimer::new();
 
-        let time1 = timer.thread_cpu_time_ns().expect("Failed to get time");
+        let start_time = timer.thread_cpu_time_ns().expect("Failed to get time");
 
         // Do some work (both CPU and sleeping)
         let mut sum = 0u64;
-        for i in 0..100000 {
+        for i in 0..100_000 {
             sum = sum.wrapping_add(i);
         }
         std::hint::black_box(sum);
@@ -185,13 +185,13 @@ mod tests {
         // Sleep to demonstrate wall time measurement
         std::thread::sleep(std::time::Duration::from_millis(1));
 
-        let time2 = timer.thread_cpu_time_ns().expect("Failed to get time");
+        let end_time = timer.thread_cpu_time_ns().expect("Failed to get time");
 
         // Time should have increased (includes sleep time)
-        assert!(time2 > time1, "Time did not increase: {} <= {}", time2, time1);
+        assert!(end_time > start_time, "Time did not increase: {} <= {}", end_time, start_time);
 
         // Should be at least 1ms due to sleep
-        assert!(time2 - time1 >= 1_000_000, "Time difference too small: {} ns", time2 - time1);
+        assert!(end_time - start_time >= 1_000_000, "Time difference too small: {} ns", end_time - start_time);
     }
 
     #[test]

@@ -45,6 +45,10 @@ fn create_test_manager() -> TierManager {
         ],
         enable_isolation: false,
         max_slow_queue_size: 1000,
+        promotion_hysteresis_ms: 100,
+        demotion_hysteresis_ms: 500,
+        violation_rate_threshold: 10.0,
+        cooldown_duration_ms: 1000,
     };
     TierManager::new(config)
 }
@@ -81,6 +85,10 @@ fn bench_tier_manager_creation(c: &mut Criterion) {
             ],
             enable_isolation: false,
             max_slow_queue_size: 1000,
+            promotion_hysteresis_ms: 100,
+            demotion_hysteresis_ms: 500,
+            violation_rate_threshold: 10.0,
+            cooldown_duration_ms: 1000,
         };
         b.iter(|| black_box(TierManager::new(config.clone())));
     });
@@ -173,6 +181,10 @@ fn bench_tier_manager_operations(c: &mut Criterion) {
             ],
             enable_isolation: false,
             max_slow_queue_size: 2000,
+            promotion_hysteresis_ms: 100,
+            demotion_hysteresis_ms: 500,
+            violation_rate_threshold: 10.0,
+            cooldown_duration_ms: 1000,
         };
         b.iter(|| {
             manager.update_config(black_box(new_config.clone()));

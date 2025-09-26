@@ -59,7 +59,7 @@ impl PreemptionHooks for NullHooks {
     }
 }
 
-/// Lock-free hook registry using AtomicPtr for minimal overhead
+/// Lock-free hook registry using `AtomicPtr` for minimal overhead
 pub struct HookRegistry {
     hooks: AtomicPtr<Arc<dyn PreemptionHooks>>,
 }
@@ -98,7 +98,7 @@ impl HookRegistry {
         }
     }
 
-    /// Invoke before_poll hook if registered
+    /// Invoke `before_poll` hook if registered
     #[inline(always)]
     pub fn before_poll(&self, task_id: TaskId, context: &TaskContext) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -109,7 +109,7 @@ impl HookRegistry {
         }
     }
 
-    /// Invoke after_poll hook if registered
+    /// Invoke `after_poll` hook if registered
     #[inline(always)]
     pub fn after_poll(&self, task_id: TaskId, result: PollResult, duration: Duration) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -120,7 +120,7 @@ impl HookRegistry {
         }
     }
 
-    /// Invoke on_yield hook if registered
+    /// Invoke `on_yield` hook if registered
     #[inline(always)]
     pub fn on_yield(&self, task_id: TaskId) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -131,7 +131,7 @@ impl HookRegistry {
         }
     }
 
-    /// Invoke on_completion hook if registered
+    /// Invoke `on_completion` hook if registered
     #[inline(always)]
     pub fn on_completion(&self, task_id: TaskId) {
         let ptr = self.hooks.load(Ordering::Acquire);
@@ -152,6 +152,7 @@ impl HookRegistry {
 /* HookRegistry is Send + Sync via AtomicPtr */
 /* SAFETY: Arc<dyn PreemptionHooks> is Send + Sync */
 unsafe impl Send for HookRegistry {}
+// SAFETY: HookRegistry only contains AtomicPtr<Arc<dyn PreemptionHooks>>, and Arc<dyn PreemptionHooks> is Sync
 unsafe impl Sync for HookRegistry {}
 
 impl Drop for HookRegistry {
@@ -200,39 +201,40 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     /// Test implementation that counts hook calls
+    #[allow(clippy::struct_field_names)]
     struct CountingHooks {
-        before_poll_count: AtomicU64,
-        after_poll_count: AtomicU64,
-        on_yield_count: AtomicU64,
-        on_completion_count: AtomicU64,
+        before_poll_calls: AtomicU64,
+        after_poll_calls: AtomicU64,
+        yield_calls: AtomicU64,
+        completion_calls: AtomicU64,
     }
 
     impl CountingHooks {
         fn new() -> Self {
             Self {
-                before_poll_count: AtomicU64::new(0),
-                after_poll_count: AtomicU64::new(0),
-                on_yield_count: AtomicU64::new(0),
-                on_completion_count: AtomicU64::new(0),
+                before_poll_calls: AtomicU64::new(0),
+                after_poll_calls: AtomicU64::new(0),
+                yield_calls: AtomicU64::new(0),
+                completion_calls: AtomicU64::new(0),
             }
         }
     }
 
     impl PreemptionHooks for CountingHooks {
         fn before_poll(&self, _task_id: TaskId, _context: &TaskContext) {
-            self.before_poll_count.fetch_add(1, Ordering::Relaxed);
+            self.before_poll_calls.fetch_add(1, Ordering::Relaxed);
         }
 
         fn after_poll(&self, _task_id: TaskId, _result: PollResult, _duration: Duration) {
-            self.after_poll_count.fetch_add(1, Ordering::Relaxed);
+            self.after_poll_calls.fetch_add(1, Ordering::Relaxed);
         }
 
         fn on_yield(&self, _task_id: TaskId) {
-            self.on_yield_count.fetch_add(1, Ordering::Relaxed);
+            self.yield_calls.fetch_add(1, Ordering::Relaxed);
         }
 
         fn on_completion(&self, _task_id: TaskId) {
-            self.on_completion_count.fetch_add(1, Ordering::Relaxed);
+            self.completion_calls.fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -294,10 +296,10 @@ mod tests {
         registry.on_completion(task_id);
 
         // Verify counts
-        assert_eq!(hooks.before_poll_count.load(Ordering::Relaxed), 1);
-        assert_eq!(hooks.after_poll_count.load(Ordering::Relaxed), 1);
-        assert_eq!(hooks.on_yield_count.load(Ordering::Relaxed), 1);
-        assert_eq!(hooks.on_completion_count.load(Ordering::Relaxed), 1);
+        assert_eq!(hooks.before_poll_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(hooks.after_poll_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(hooks.yield_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(hooks.completion_calls.load(Ordering::Relaxed), 1);
     }
 
     #[test]
@@ -340,7 +342,7 @@ mod tests {
 
         // Call should go to hooks2
         registry.before_poll(task_id, &context);
-        assert_eq!(hooks1.before_poll_count.load(Ordering::Relaxed), 0);
-        assert_eq!(hooks2.before_poll_count.load(Ordering::Relaxed), 1);
+        assert_eq!(hooks1.before_poll_calls.load(Ordering::Relaxed), 0);
+        assert_eq!(hooks2.before_poll_calls.load(Ordering::Relaxed), 1);
     }
 }

@@ -48,9 +48,9 @@ proptest = "1.5"
 quickcheck = "1.0"
 pretty_assertions = "1.4"
 
-# Benchmarking
+# Benchmarking (MSRV-compatible versions)
 criterion = { version = "0.5", features = ["html_reports", "cargo_bench_support"] }
-pprof = { version = "0.13", features = ["flamegraph", "criterion"] }
+pprof = { version = "0.12", features = ["flamegraph", "criterion"] }
 
 # Debugging and analysis
 console-subscriber = "0.4"
@@ -58,6 +58,10 @@ tokio-metrics = "0.3"
 
 # Documentation examples
 doc-comment = "0.3"
+
+# MSRV constraints for dev-dependencies
+rayon = "=1.10.0" # constrain for MSRV compatibility
+backtrace = "=0.3.75" # constrain for MSRV compatibility
 
 [profile.release]
 opt-level = 3

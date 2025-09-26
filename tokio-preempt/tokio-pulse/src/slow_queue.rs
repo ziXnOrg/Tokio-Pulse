@@ -28,12 +28,12 @@ pub enum TaskPriority {
 
 impl TaskPriority {
     /// Boost priority by one level
-    pub fn boost(self) -> Self {
+    #[must_use]
+    pub const fn boost(self) -> Self {
         match self {
-            TaskPriority::Low => TaskPriority::Normal,
-            TaskPriority::Normal => TaskPriority::High,
-            TaskPriority::High => TaskPriority::High,
-            TaskPriority::Critical => TaskPriority::Critical,
+            Self::Low => Self::Normal,
+            Self::Normal => Self::High,
+            Self::High | Self::Critical => self,
         }
     }
 }
@@ -141,7 +141,7 @@ pub struct SlowQueueConfig {
 
 impl Default for SlowQueueConfig {
     fn default() -> Self {
-        SlowQueueConfig {
+        Self {
             max_queue_size: 10_000,
             default_batch_size: 32,
             max_batch_size: 256,
@@ -173,8 +173,9 @@ pub struct SlowQueue {
 
 impl SlowQueue {
     /// Create new slow queue with configuration
+    #[must_use]
     pub fn new(config: SlowQueueConfig) -> Self {
-        SlowQueue {
+        Self {
             queue: Arc::new(SegQueue::new()),
             priority_queues: [
                 Arc::new(SegQueue::new()),
@@ -190,6 +191,11 @@ impl SlowQueue {
     }
 
     /// Add task to slow queue with priority handling
+    ///
+    /// # Errors
+    ///
+    /// Returns `QueueError::Full` if the queue has reached capacity.
+    /// Returns `QueueError::SourceThrottled` if per-source limits are exceeded.
     pub fn enqueue(&self, task: SlowTask) -> Result<(), QueueError> {
         // Check queue limits
         let current_size = self.metrics.total_queued.load(Ordering::Relaxed);
@@ -218,7 +224,7 @@ impl SlowQueue {
         // Route to appropriate priority queue
         match task.priority {
             TaskPriority::Critical => {
-                self.priority_queues[0].push(task.clone());
+                self.priority_queues[0].push(task);
                 self.metrics.critical_enqueued.fetch_add(1, Ordering::Relaxed);
             },
             priority => {
@@ -236,6 +242,8 @@ impl SlowQueue {
     }
 
     /// Process batch of slow tasks with fairness
+    #[allow(clippy::excessive_nesting)]
+    #[must_use]
     pub fn process_batch(&self, batch_size: usize) -> Vec<SlowTask> {
         let mut batch = Vec::with_capacity(batch_size);
         let mut priority_credits = [4, 3, 2, 1]; // Weight by priority
@@ -256,12 +264,7 @@ impl SlowQueue {
                         batch.push(task.clone());
                         *credits -= 1;
                         found = true;
-
-                        // Update source count
-                        let source_id = self.identify_source(&task);
-                        if let Some(mut count) = self.source_counts.get_mut(&source_id) {
-                            *count = count.saturating_sub(1);
-                        }
+                        self.decrement_source_count(&task);
                         break;
                     }
                 }
@@ -271,12 +274,7 @@ impl SlowQueue {
             if !found {
                 if let Some(task) = self.queue.pop() {
                     batch.push(task.clone());
-
-                    // Update source count
-                    let source_id = self.identify_source(&task);
-                    if let Some(mut count) = self.source_counts.get_mut(&source_id) {
-                        *count = count.saturating_sub(1);
-                    }
+                    self.decrement_source_count(&task);
                 } else {
                     break; // Queue empty
                 }
@@ -292,6 +290,7 @@ impl SlowQueue {
     }
 
     /// Get current queue size
+    #[must_use]
     pub fn size(&self) -> usize {
         self.metrics.total_queued.load(Ordering::Relaxed)
     }
@@ -345,6 +344,7 @@ impl SlowQueue {
     }
 
     /// Get metrics snapshot
+    #[must_use]
     pub fn metrics(&self) -> SlowQueueMetricsSnapshot {
         SlowQueueMetricsSnapshot {
             total_queued: self.metrics.total_queued.load(Ordering::Relaxed),
@@ -365,6 +365,14 @@ impl SlowQueue {
         // Simple hash of task_id's upper bits as source identifier
         // In production, this could be more sophisticated (e.g., track spawning context)
         task.task_id.0 >> 32
+    }
+
+    /// Decrements the source count for a task, reducing nesting
+    fn decrement_source_count(&self, task: &SlowTask) {
+        let source_id = self.identify_source(task);
+        if let Some(mut count) = self.source_counts.get_mut(&source_id) {
+            *count = count.saturating_sub(1);
+        }
     }
 
     /// Calculate dynamic batch size based on queue depth
@@ -421,7 +429,7 @@ mod tests {
             enqueue_time: Instant::now(),
             tier: 2,
             violations: 3,
-            cpu_time_ns: 1000000,
+            cpu_time_ns: 1_000_000,
             poll_count: 100,
             priority: TaskPriority::Normal,
         };
@@ -532,7 +540,7 @@ mod tests {
         let metrics = queue.metrics();
         assert_eq!(metrics.critical_enqueued, 1);
 
-        queue.process_batch(1);
+        let _ = queue.process_batch(1);
         let metrics = queue.metrics();
         assert_eq!(metrics.critical_processed, 1);
         assert_eq!(metrics.total_processed, 1);

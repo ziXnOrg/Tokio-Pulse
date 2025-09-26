@@ -146,7 +146,7 @@ mod tests {
 
         // Do some CPU work
         let mut sum = 0u64;
-        for i in 0..100000 {
+        for i in 0..100_000 {
             sum = sum.wrapping_add(i);
         }
         std::hint::black_box(sum);

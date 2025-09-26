@@ -154,7 +154,7 @@ mod tests {
         // Consume most of the budget (all but last)
         for i in 0..MIN_BUDGET - 1 {
             let should_yield = budget.consume();
-            assert!(!should_yield, "Should not yield at iteration {}", i);
+            assert!(!should_yield, "Should not yield at iteration {i}");
         }
 
         // Last consumption should indicate exhaustion
