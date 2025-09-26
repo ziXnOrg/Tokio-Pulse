@@ -13,8 +13,8 @@ categories = ["asynchronous", "concurrency", "development-tools"]
 readme = "README.md"
 
 [dependencies]
-# Core async runtime - using our forked version with preemption hooks
-tokio = { path = "../../tokio-fork/tokio", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
+# Core async runtime
+tokio = { version = "1.41", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
 
 # Atomic and concurrent data structures
 crossbeam = "0.8"

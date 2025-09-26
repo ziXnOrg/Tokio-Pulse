@@ -1,3 +1,8 @@
+//! Production-ready preemption system for Tokio async runtime
+//!
+//! This crate provides a multi-tier intervention system to prevent task starvation
+//! in async applications by monitoring and controlling CPU-bound task execution.
+
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 #![warn(rust_2018_idioms)]
