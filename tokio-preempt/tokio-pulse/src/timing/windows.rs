@@ -1,6 +1,6 @@
 #![allow(unsafe_code)] /* Windows APIs require unsafe */
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Windows CPU time via QueryThreadCycleTime */
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use windows_sys::Win32::System::{
     Performance::QueryPerformanceFrequency,
@@ -186,7 +184,7 @@ mod tests {
 
         // Do some CPU work
         let mut sum = 0u64;
-        for i in 0..100000 {
+        for i in 0..100_000 {
             sum = sum.wrapping_add(i);
         }
         std::hint::black_box(sum);

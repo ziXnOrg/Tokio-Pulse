@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_pulse::{
-    HookRegistry, PreemptionHooks, PollResult, TaskContext, TaskId, TierConfig, TierManager,
+    HookRegistry, PollResult, PreemptionHooks, TaskContext, TaskId, TierConfig, TierManager,
 };
 
 #[test]
@@ -37,11 +37,7 @@ fn test_tier_manager_as_hooks() {
 
     // Simulate polls that don't cause violations with reasonable durations
     registry.before_poll(task_id, &context);
-    registry.after_poll(
-        task_id,
-        PollResult::Pending,
-        Duration::from_micros(100),
-    );
+    registry.after_poll(task_id, PollResult::Pending, Duration::from_micros(100));
 
     // Check metrics - no violations from normal polls
     let metrics = manager.metrics();
@@ -100,11 +96,7 @@ fn test_tier_escalation_through_hooks() {
     // Multiple polls to track activity
     for _ in 0..5 {
         registry.before_poll(task_id, &context);
-        registry.after_poll(
-            task_id,
-            PollResult::Pending,
-            Duration::from_micros(50),
-        );
+        registry.after_poll(task_id, PollResult::Pending, Duration::from_micros(50));
     }
 
     // Verify polls were counted
@@ -127,11 +119,7 @@ fn test_voluntary_yield_resets_tier() {
     // Regular polls without violations
     for _ in 0..3 {
         registry.before_poll(task_id, &context);
-        registry.after_poll(
-            task_id,
-            PollResult::Pending,
-            Duration::from_micros(50),
-        );
+        registry.after_poll(task_id, PollResult::Pending, Duration::from_micros(50));
     }
 
     let metrics_before = manager.metrics();

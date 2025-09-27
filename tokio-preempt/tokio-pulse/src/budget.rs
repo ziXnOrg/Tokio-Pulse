@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Task budget management for preemptive yielding */
-
 use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 
 /// Default budget allocation per task poll cycle.
@@ -27,13 +25,13 @@ pub const MAX_BUDGET: u32 = 10000;
 #[repr(C, align(16))]
 #[derive(Debug)]
 pub struct TaskBudget {
-    deadline_ns: AtomicU64,  /* CPU time deadline (ns) */
+    deadline_ns: AtomicU64, /* CPU time deadline (ns) */
 
-    remaining: AtomicU32,    /* Operations before yield */
+    remaining: AtomicU32, /* Operations before yield */
 
-    tier: AtomicU8,          /* Intervention tier (0-3) */
+    tier: AtomicU8, /* Intervention tier (0-3) */
 
-    _padding: [u8; 3],       /* Cache alignment */
+    _padding: [u8; 3], /* Cache alignment */
 }
 
 /* Compile-time size verification */
@@ -156,7 +154,7 @@ mod tests {
         // Consume most of the budget (all but last)
         for i in 0..MIN_BUDGET - 1 {
             let should_yield = budget.consume();
-            assert!(!should_yield, "Should not yield at iteration {}", i);
+            assert!(!should_yield, "Should not yield at iteration {i}");
         }
 
         // Last consumption should indicate exhaustion

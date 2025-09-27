@@ -1,6 +1,6 @@
 #![allow(unsafe_code)] /* clock_gettime requires unsafe */
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Linux CPU timing via clock_gettime */
-
 use libc::{CLOCK_THREAD_CPUTIME_ID, clock_gettime, timespec};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -148,7 +146,7 @@ mod tests {
 
         // Do some CPU work
         let mut sum = 0u64;
-        for i in 0..100000 {
+        for i in 0..100_000 {
             sum = sum.wrapping_add(i);
         }
         std::hint::black_box(sum);

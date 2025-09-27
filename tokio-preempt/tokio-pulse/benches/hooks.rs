@@ -7,10 +7,8 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Benchmarks for hook registry performance */
-
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_pulse::hooks::{HookRegistry, NullHooks, PreemptionHooks};

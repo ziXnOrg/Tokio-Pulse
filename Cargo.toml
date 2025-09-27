@@ -1,9 +1,6 @@
 [workspace]
 members = [
     "tokio-preempt/tokio-pulse",
-    "tokio-fork/tokio",
-    "tokio-fork/tokio-macros",
-    "tokio-fork/tokio-util",
 ]
 
 # Use resolver 2 for better dependency resolution
@@ -18,10 +15,8 @@ repository = "https://github.com/ziXnOrg/Tokio-Pulse"
 
 [workspace.dependencies]
 # Share common dependencies across the workspace
-tokio = { path = "tokio-fork/tokio", features = ["full"] }
+tokio = { version = "1.41", features = ["full"] }
 tokio-pulse = { path = "tokio-preempt/tokio-pulse" }
-tokio-macros = { path = "tokio-fork/tokio-macros" }
-tokio-util = { path = "tokio-fork/tokio-util" }
 
 # Common dependencies
 anyhow = "1.0.100"

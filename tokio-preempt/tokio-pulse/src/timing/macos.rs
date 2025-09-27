@@ -1,6 +1,6 @@
 #![allow(unsafe_code)] /* Mach kernel APIs require unsafe */
 
-/**
+/*
  *     ______   __  __     __         ______     ______
  *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
  *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
@@ -9,9 +9,7 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* macOS CPU time via thread_info */
-
 use libc::{thread_basic_info, thread_info, thread_info_t};
 use mach2::kern_return::KERN_SUCCESS;
 use mach2::message::mach_msg_type_number_t;
@@ -182,20 +180,20 @@ mod tests {
     fn test_macos_timer_measurement() {
         let timer = MacOsTimer::new().expect("Failed to create timer");
 
-        let time1 = timer.thread_cpu_time_ns().expect("Failed to get time");
+        let start_time = timer.thread_cpu_time_ns().expect("Failed to get time");
 
         // Do some CPU work
         let mut sum = 0u64;
-        for i in 0..100000 {
+        for i in 0..100_000 {
             sum = sum.wrapping_add(i);
         }
         std::hint::black_box(sum);
 
-        let time2 = timer.thread_cpu_time_ns().expect("Failed to get time");
+        let end_time = timer.thread_cpu_time_ns().expect("Failed to get time");
 
         // Time should have increased (note: microsecond resolution means
         // we might not see small changes)
-        assert!(time2 >= time1, "Time went backwards: {} < {}", time2, time1);
+        assert!(end_time >= start_time, "Time went backwards: {} < {}", end_time, start_time);
     }
 
     #[test]
@@ -233,15 +231,15 @@ mod tests {
         let timer = MacOsTimer::new().expect("Failed to create timer");
 
         // Collect multiple samples
-        let mut times = Vec::new();
+        let mut samples = Vec::new();
         for _ in 0..100 {
-            times.push(timer.thread_cpu_time_ns().expect("Failed to get time"));
+            samples.push(timer.thread_cpu_time_ns().expect("Failed to get time"));
         }
 
         // Find minimum non-zero difference (this is our resolution)
         let mut min_diff = u64::MAX;
-        for i in 1..times.len() {
-            let diff = times[i].saturating_sub(times[i - 1]);
+        for i in 1..samples.len() {
+            let diff = samples[i].saturating_sub(samples[i - 1]);
             if diff > 0 && diff < min_diff {
                 min_diff = diff;
             }

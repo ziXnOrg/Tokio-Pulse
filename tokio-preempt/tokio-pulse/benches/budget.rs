@@ -7,13 +7,11 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Benchmarks for task budget operations */
-
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::thread;
-use tokio_pulse::budget::{TaskBudget, DEFAULT_BUDGET, MAX_BUDGET, MIN_BUDGET};
+use tokio_pulse::budget::{DEFAULT_BUDGET, MAX_BUDGET, MIN_BUDGET, TaskBudget};
 
 fn bench_budget_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("task_budget/creation");

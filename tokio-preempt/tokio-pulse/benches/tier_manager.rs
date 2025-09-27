@@ -7,10 +7,8 @@
  *
  * Author: Colin MacRitchie / Ripple Group
  */
-
 /* Benchmarks for tier manager operations */
-
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -47,6 +45,10 @@ fn create_test_manager() -> TierManager {
         ],
         enable_isolation: false,
         max_slow_queue_size: 1000,
+        promotion_hysteresis_ms: 100,
+        demotion_hysteresis_ms: 500,
+        violation_rate_threshold: 10.0,
+        cooldown_duration_ms: 1000,
     };
     TierManager::new(config)
 }
@@ -60,13 +62,33 @@ fn bench_tier_manager_creation(c: &mut Criterion) {
             cpu_ms_budget: 10,
             yield_interval: 100,
             tier_policies: [
-                TierPolicy::Monitor,
-                TierPolicy::Warn,
-                TierPolicy::Yield,
-                TierPolicy::Isolate,
+                TierPolicy {
+                    name: "Monitor",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Monitor,
+                },
+                TierPolicy {
+                    name: "Warn",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Warn,
+                },
+                TierPolicy {
+                    name: "Yield",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Yield,
+                },
+                TierPolicy {
+                    name: "Isolate",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Isolate,
+                },
             ],
             enable_isolation: false,
             max_slow_queue_size: 1000,
+            promotion_hysteresis_ms: 100,
+            demotion_hysteresis_ms: 500,
+            violation_rate_threshold: 10.0,
+            cooldown_duration_ms: 1000,
         };
         b.iter(|| black_box(TierManager::new(config.clone())));
     });
@@ -136,13 +158,33 @@ fn bench_tier_manager_operations(c: &mut Criterion) {
             cpu_ms_budget: 15,
             yield_interval: 150,
             tier_policies: [
-                TierPolicy::Monitor,
-                TierPolicy::Warn,
-                TierPolicy::Yield,
-                TierPolicy::Isolate,
+                TierPolicy {
+                    name: "Monitor",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Monitor,
+                },
+                TierPolicy {
+                    name: "Warn",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Warn,
+                },
+                TierPolicy {
+                    name: "Yield",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Yield,
+                },
+                TierPolicy {
+                    name: "Isolate",
+                    promotion_threshold: 3,
+                    action: InterventionAction::Isolate,
+                },
             ],
             enable_isolation: false,
             max_slow_queue_size: 2000,
+            promotion_hysteresis_ms: 100,
+            demotion_hysteresis_ms: 500,
+            violation_rate_threshold: 10.0,
+            cooldown_duration_ms: 1000,
         };
         b.iter(|| {
             manager.update_config(black_box(new_config.clone()));
@@ -170,19 +212,11 @@ fn bench_tier_promotion(c: &mut Criterion) {
             manager.before_poll(task_id, &context);
 
             /* Simulate slow poll - trigger warning tier */
-            manager.after_poll(
-                task_id,
-                PollResult::Pending,
-                Duration::from_millis(15),
-            );
+            manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(15));
 
             /* Another slow poll - trigger yield tier */
             manager.before_poll(task_id, &context);
-            manager.after_poll(
-                task_id,
-                PollResult::Pending,
-                Duration::from_millis(60),
-            );
+            manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(60));
 
             /* Clean up */
             manager.on_completion(task_id);
@@ -256,13 +290,9 @@ fn bench_memory_usage(c: &mut Criterion) {
                             priority: None,
                         };
                         manager.before_poll(task_id, &context);
-                        manager.after_poll(
-                            task_id,
-                            PollResult::Ready,
-                            Duration::from_nanos(100),
-                        );
+                        manager.after_poll(task_id, PollResult::Ready, Duration::from_nanos(100));
                     }
-                    black_box(manager.active_task_count());
+                    black_box(manager.metrics().active_tasks);
                 });
             },
         );
@@ -287,11 +317,7 @@ fn bench_slow_queue_operations(c: &mut Criterion) {
                 };
                 manager.before_poll(task_id, &context);
                 /* Trigger slow task detection */
-                manager.after_poll(
-                    task_id,
-                    PollResult::Pending,
-                    Duration::from_millis(150),
-                );
+                manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(150));
             }
         });
     });
@@ -306,11 +332,7 @@ fn bench_slow_queue_operations(c: &mut Criterion) {
                 priority: None,
             };
             manager.before_poll(task_id, &context);
-            manager.after_poll(
-                task_id,
-                PollResult::Pending,
-                Duration::from_millis(150),
-            );
+            manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(150));
         }
 
         b.iter(|| {
