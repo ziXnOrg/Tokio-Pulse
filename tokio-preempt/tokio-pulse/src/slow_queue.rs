@@ -220,6 +220,7 @@ impl SlowQueue {
             return Err(QueueError::SourceThrottled);
         }
         *source_count += 1;
+        drop(source_count);
 
         // Route to appropriate priority queue
         match task.priority {
@@ -376,6 +377,7 @@ impl SlowQueue {
     }
 
     /// Calculate dynamic batch size based on queue depth
+    #[must_use]
     pub fn calculate_batch_size(&self) -> usize {
         let queue_size = self.size();
         let base_batch = self.config.default_batch_size;

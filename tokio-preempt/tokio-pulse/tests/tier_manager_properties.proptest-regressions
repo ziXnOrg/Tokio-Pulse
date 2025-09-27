@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 08454bb46af681a293163f5e3575fe806e59596f73fdebc184b9e7728730df1f # shrinks to config = TierConfig { poll_budget: 100, cpu_ms_budget: 1, yield_interval: 10, tier_policies: [TierPolicy { name: "Monitor", promotion_threshold: 5, action: Monitor }, TierPolicy { name: "Warn", promotion_threshold: 3, action: Warn }, TierPolicy { name: "Yield", promotion_threshold: 2, action: Yield }, TierPolicy { name: "Isolate", promotion_threshold: 1, action: Isolate }], enable_isolation: false, max_slow_queue_size: 100, promotion_hysteresis_ms: 10, demotion_hysteresis_ms: 50, violation_rate_threshold: 1.0, cooldown_duration_ms: 100 }, task_id1 = TaskId(1), task_id2 = TaskId(2), context = TaskContext { worker_id: 0, priority: None }
+cc d66889daa72dda5729afe03d2281d317039d8531b1573a955d79d6bcd634a0ba # shrinks to config = TierConfig { poll_budget: 100, cpu_ms_budget: 1, yield_interval: 10, tier_policies: [TierPolicy { name: "Monitor", promotion_threshold: 5, action: Monitor }, TierPolicy { name: "Warn", promotion_threshold: 3, action: Warn }, TierPolicy { name: "Yield", promotion_threshold: 2, action: Yield }, TierPolicy { name: "Isolate", promotion_threshold: 1, action: Isolate }], enable_isolation: false, max_slow_queue_size: 100, promotion_hysteresis_ms: 10, demotion_hysteresis_ms: 50, violation_rate_threshold: 1.0, cooldown_duration_ms: 100 }, task_operations = [(TaskId(1), TaskContext { worker_id: 0, priority: None }, 50µs)]
