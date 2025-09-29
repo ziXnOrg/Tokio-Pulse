@@ -1,6 +1,6 @@
 # Tokio-Pulse
 
-Production-ready preemption system for Tokio's async runtime, solving task starvation issues where CPU-bound tasks monopolize worker threads.
+preemption system for Tokio's async runtime, solving task starvation issues where CPU-bound tasks monopolize worker threads.
 
 ## Overview
 
