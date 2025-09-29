@@ -1,15 +1,13 @@
-#![allow(unsafe_code)] /* OS-level timing APIs require unsafe */
+#![allow(unsafe_code)] // OS-level timing APIs require unsafe
 
-/*
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Cross-platform CPU time measurement */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Cross-platform CPU time measurement
 use std::fmt;
 use thiserror::Error;
 
@@ -29,55 +27,103 @@ use macos::MacOsTimer;
 #[cfg(target_os = "windows")]
 use windows::WindowsTimer;
 
-/* CPU timing errors */
+/// CPU timing errors
 #[derive(Debug, Error)]
 pub enum TimingError {
-    /* Platform not supported */
+    /// Platform not supported for high-precision timing
     #[error("Platform not supported: {0}")]
     PlatformNotSupported(String),
 
-    /* System call failure */
+    /// System call failure when accessing timing APIs
     #[error("System call failed: {0}")]
     SystemCallFailed(#[from] std::io::Error),
 
-    /* Calibration failure */
+    /// Timer calibration failed during initialization
     #[error("Calibration failed: {0}")]
     CalibrationFailed(String),
 
-    /* Time calculation overflow */
+    /// Time calculation resulted in overflow
     #[error("Time calculation overflow")]
     Overflow,
 }
 
-/* CPU timer trait */
+/// CPU timer trait for cross-platform timing
+///
+/// Provides high-precision CPU time measurement with automatic
+/// calibration and overhead compensation.
 pub trait CpuTimer: Send + Sync {
-    /* Get thread CPU time (ns) */
+    /// Get thread CPU time in nanoseconds
+    ///
+    /// Returns the amount of CPU time consumed by the current thread.
+    /// This excludes time spent waiting for I/O or other threads.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the timing API is unavailable or fails
     fn thread_cpu_time_ns(&self) -> Result<u64, TimingError>;
 
-    /* Measurement overhead (ns) */
+    /// Get calibrated measurement overhead in nanoseconds
+    ///
+    /// Returns the measured overhead of calling the timing function,
+    /// which can be subtracted from measurements for accuracy.
     fn calibrated_overhead_ns(&self) -> u64;
 
-    /* Platform name */
+    /// Get platform-specific timer name
+    ///
+    /// Returns a string identifying the timing implementation
+    /// (e.g., "linux-clock_gettime", "windows-QueryThreadCycleTime")
     fn platform_name(&self) -> &'static str;
 }
 
-/* Calibratable timer trait */
+/// Calibratable timer trait for overhead measurement
+///
+/// Allows timers to measure and compensate for their own overhead
+/// to provide more accurate timing measurements.
 pub trait Calibratable {
-    /* Calibrate measurement overhead */
+    /// Calibrate measurement overhead
+    ///
+    /// Measures the timer's own overhead by performing repeated
+    /// measurements and calculating the median overhead.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if calibration measurements fail
     fn calibrate(&mut self) -> Result<(), TimingError>;
 
-    /* Measure operation overhead */
+    /// Measure operation overhead in nanoseconds
+    ///
+    /// Performs a single overhead measurement for calibration purposes
     fn measure_overhead(&self) -> u64;
 }
 
-/* Create platform-specific CPU timer */
+/// Create platform-specific CPU timer
+///
+/// Creates the best available CPU timer for the current platform:
+/// - Linux: clock_gettime(CLOCK_THREAD_CPUTIME_ID)
+/// - Windows: QueryThreadCycleTime with frequency scaling
+/// - macOS: thread_info with THREAD_BASIC_INFO
+/// - Fallback: Instant::now() (wall clock time)
+///
+/// The timer is automatically calibrated to measure its own overhead.
+///
+/// # Examples
+///
+/// ```no_run
+/// use tokio_pulse::timing::create_cpu_timer;
+///
+/// let timer = create_cpu_timer();
+/// let start = timer.thread_cpu_time_ns().unwrap();
+/// // ... do some work ...
+/// let end = timer.thread_cpu_time_ns().unwrap();
+/// let elapsed = end - start - timer.calibrated_overhead_ns();
+/// ```
 #[must_use]
 pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     #[cfg(target_os = "linux")]
     {
         match LinuxTimer::new() {
             Ok(mut timer) => {
-                let _ = timer.calibrate(); /* Ignore errors */
+                let _ = timer.calibrate(); // Ignore errors
                 Box::new(timer)
             },
             Err(_) => Box::new(FallbackTimer::new()),
@@ -88,7 +134,7 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     {
         match WindowsTimer::new() {
             Ok(mut timer) => {
-                let _ = timer.calibrate(); /* Ignore errors */
+                let _ = timer.calibrate(); // Ignore errors
                 Box::new(timer)
             },
             Err(_) => Box::new(FallbackTimer::new()),
@@ -99,7 +145,7 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     {
         match MacOsTimer::new() {
             Ok(mut timer) => {
-                let _ = timer.calibrate(); /* Ignore errors */
+                let _ = timer.calibrate(); // Ignore errors
                 Box::new(timer)
             },
             Err(_) => Box::new(FallbackTimer::new()),
@@ -112,13 +158,20 @@ pub fn create_cpu_timer() -> Box<dyn CpuTimer> {
     }
 }
 
-/* Timer implementation info */
+/// Timer implementation information
+///
+/// Provides metadata about the timing implementation including
+/// platform, overhead characteristics, and measurement type.
 #[derive(Debug, Clone)]
 pub struct TimerInfo {
-    pub platform: String,        /* Platform name */
-    pub overhead_ns: u64,        /* Expected overhead (ns) */
-    pub resolution_ns: u64,      /* Timer resolution (ns) */
-    pub measures_cpu_time: bool, /* CPU vs wall time */
+    /// Platform-specific timer name
+    pub platform: String,
+    /// Expected measurement overhead in nanoseconds
+    pub overhead_ns: u64,
+    /// Timer resolution in nanoseconds
+    pub resolution_ns: u64,
+    /// Whether timer measures CPU time (true) or wall time (false)
+    pub measures_cpu_time: bool,
 }
 
 impl fmt::Display for TimerInfo {
@@ -131,7 +184,7 @@ impl fmt::Display for TimerInfo {
     }
 }
 
-/* Calculate median of sorted values */
+// Calculate median of sorted values
 fn median_of_sorted(values: &[u64]) -> u64 {
     let len = values.len();
     if len == 0 {
@@ -153,10 +206,10 @@ mod tests {
     fn test_create_timer() {
         let timer = create_cpu_timer();
 
-        /* Should return valid timer */
+        // Should return valid timer
         assert!(!timer.platform_name().is_empty());
 
-        /* Should get CPU time */
+        // Should get CPU time
         let result = timer.thread_cpu_time_ns();
         assert!(result.is_ok(), "Failed to get CPU time: {:?}", result);
     }
@@ -167,7 +220,7 @@ mod tests {
 
         let mut previous = timer.thread_cpu_time_ns().unwrap();
 
-        /* Verify monotonicity */
+        // Verify monotonicity
         for _ in 0..100 {
             let mut sum = 0u64;
             for i in 0..1000 {
@@ -178,7 +231,7 @@ mod tests {
             assert!(current >= previous, "Time went backwards: {} < {}", current, previous);
             previous = current;
 
-            /* Prevent optimization */
+            // Prevent optimization
             std::hint::black_box(sum);
         }
     }

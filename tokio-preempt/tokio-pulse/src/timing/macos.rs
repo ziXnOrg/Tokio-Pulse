@@ -1,15 +1,13 @@
-#![allow(unsafe_code)] /* Mach kernel APIs require unsafe */
+#![allow(unsafe_code)] // Mach kernel APIs require unsafe
 
-/*
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* macOS CPU time via thread_info */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// macOS CPU time via thread_info
 use libc::{thread_basic_info, thread_info, thread_info_t};
 use mach2::kern_return::KERN_SUCCESS;
 use mach2::message::mach_msg_type_number_t;

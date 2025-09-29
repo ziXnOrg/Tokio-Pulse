@@ -1,0 +1,43 @@
+[package]
+name = "tokio-pulse-macros"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Tokio-Pulse Contributors"]
+description = "Procedural macros for Tokio-Pulse preemption system"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ziXnOrg/Tokio-Pulse"
+keywords = ["async", "tokio", "preemption", "macros", "instrumentation"]
+categories = ["asynchronous", "development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+# Procedural macro dependencies
+proc-macro2 = "1.0"
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+
+# Core tokio-pulse for types
+tokio-pulse = { path = "../tokio-preempt/tokio-pulse" }
+
+[dev-dependencies]
+tokio = { version = "1.41", features = ["rt", "macros"] }
+tokio-test = "0.4"
+trybuild = "1.0"
+
+[lints]
+rust.unsafe_code = "forbid"
+rust.missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"

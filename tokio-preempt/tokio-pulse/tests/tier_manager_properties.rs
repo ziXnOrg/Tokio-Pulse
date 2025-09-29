@@ -1,13 +1,11 @@
-/*
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Property-based tests for TierManager invariants */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Property-based tests for TierManager invariants
 use proptest::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
@@ -45,21 +43,45 @@ fn tier_config_strategy() -> impl Strategy<Value = TierConfig> {
                     name: "Monitor",
                     promotion_threshold: 5,
                     action: InterventionAction::Monitor,
+                    promotion_cpu_threshold_ms: 100,
+                    promotion_slow_poll_threshold: 10,
+                    demotion_good_polls: 20,
+                    demotion_min_duration_ms: 5000,
+                    demotion_cpu_threshold_ns: 1_000_000,
+                    demotion_evaluation_interval: 5,
                 },
                 TierPolicy {
                     name: "Warn",
                     promotion_threshold: 3,
                     action: InterventionAction::Warn,
+                    promotion_cpu_threshold_ms: 50,
+                    promotion_slow_poll_threshold: 5,
+                    demotion_good_polls: 15,
+                    demotion_min_duration_ms: 3000,
+                    demotion_cpu_threshold_ns: 500_000,
+                    demotion_evaluation_interval: 3,
                 },
                 TierPolicy {
                     name: "Yield",
                     promotion_threshold: 2,
                     action: InterventionAction::Yield,
+                    promotion_cpu_threshold_ms: 25,
+                    promotion_slow_poll_threshold: 3,
+                    demotion_good_polls: 10,
+                    demotion_min_duration_ms: 2000,
+                    demotion_cpu_threshold_ns: 250_000,
+                    demotion_evaluation_interval: 2,
                 },
                 TierPolicy {
                     name: "Isolate",
                     promotion_threshold: 1,
                     action: InterventionAction::Isolate,
+                    promotion_cpu_threshold_ms: 10,
+                    promotion_slow_poll_threshold: 1,
+                    demotion_good_polls: 5,
+                    demotion_min_duration_ms: 1000,
+                    demotion_cpu_threshold_ns: 100_000,
+                    demotion_evaluation_interval: 1,
                 },
             ],
             enable_isolation: false,
@@ -68,6 +90,11 @@ fn tier_config_strategy() -> impl Strategy<Value = TierConfig> {
             demotion_hysteresis_ms,
             violation_rate_threshold,
             cooldown_duration_ms,
+            good_behavior_threshold: 50,
+            min_tier_duration_ms: 2000,
+            demotion_cpu_threshold_ns: 500_000,
+            demotion_evaluation_interval: 10,
+            test_mode: true,
         }
     })
 }
@@ -441,6 +468,245 @@ mod edge_case_properties {
             prop_assert_eq!(metrics.total_polls, 1);
 
             manager.on_completion(task_id);
+        }
+    }
+}
+
+/// Worker statistics property tests for invariant verification
+#[cfg(test)]
+mod worker_stats_properties {
+    use super::*;
+    use proptest::strategy::ValueTree;
+
+    proptest! {
+        /// Property: Worker statistics should be monotonic (only increase except on reset)
+        #[test]
+        fn worker_stats_monotonicity(
+            config in tier_config_strategy(),
+            operations in prop::collection::vec(
+                (task_id_strategy(), task_context_strategy(), poll_result_strategy(), normal_duration_strategy()),
+                1..50
+            )
+        ) {
+            let manager = TierManager::new(config);
+            let mut previous_stats = std::collections::HashMap::new();
+
+            for (task_id, context, result, duration) in operations {
+                // Record stats before operation
+                let worker_id = context.worker_id;
+                let before_stats = manager.get_worker_metrics(worker_id);
+
+                // Perform operation
+                manager.before_poll(task_id, &context);
+                manager.after_poll(task_id, result, duration);
+
+                // Verify that some voluntary yields are tracked
+                if prop::bool::weighted(0.2).new_tree(&mut proptest::test_runner::TestRunner::default()).unwrap().current() {
+                    manager.on_yield(task_id);
+                }
+
+                // Record stats after operation
+                let after_stats = manager.get_worker_metrics(worker_id);
+
+                // Stats should be monotonic
+                prop_assert!(after_stats.polls >= before_stats.polls);
+                prop_assert!(after_stats.violations >= before_stats.violations);
+                prop_assert!(after_stats.yields >= before_stats.yields);
+                prop_assert!(after_stats.cpu_time_ns >= before_stats.cpu_time_ns);
+                prop_assert!(after_stats.tasks >= before_stats.tasks);
+                prop_assert!(after_stats.slow_polls >= before_stats.slow_polls);
+
+                // Update tracking
+                previous_stats.insert(worker_id, after_stats);
+
+                // Clean up completed tasks
+                if matches!(result, PollResult::Ready) {
+                    manager.on_completion(task_id);
+                }
+            }
+        }
+
+        /// Property: Worker reset should be idempotent
+        #[test]
+        fn worker_reset_idempotency(
+            config in tier_config_strategy(),
+            worker_id in 0usize..=16,
+            num_resets in 1u8..=5
+        ) {
+            let manager = TierManager::new(config);
+
+            // Set up some initial stats
+            for i in 0..5 {
+                let task_id = TaskId(i);
+                let context = TaskContext { worker_id, priority: None };
+                manager.before_poll(task_id, &context);
+                manager.after_poll(task_id, PollResult::Ready, Duration::from_micros(100));
+                manager.on_yield(task_id);
+            }
+
+            // Verify we have stats
+            let initial_stats = manager.get_worker_metrics(worker_id);
+            prop_assert!(initial_stats.polls > 0);
+            prop_assert!(initial_stats.yields > 0);
+
+            // Reset multiple times
+            for _ in 0..num_resets {
+                manager.reset_worker_stats(worker_id);
+            }
+
+            // Verify final state is same regardless of number of resets
+            let final_stats = manager.get_worker_metrics(worker_id);
+            prop_assert_eq!(final_stats.worker_id, worker_id);
+            prop_assert_eq!(final_stats.polls, 0);
+            prop_assert_eq!(final_stats.violations, 0);
+            prop_assert_eq!(final_stats.yields, 0);
+            prop_assert_eq!(final_stats.cpu_time_ns, 0);
+            prop_assert_eq!(final_stats.tasks, 0);
+            prop_assert_eq!(final_stats.slow_polls, 0);
+        }
+
+        /// Property: Concurrent worker operations should maintain consistency
+        #[test]
+        fn concurrent_worker_stats_safety(
+            config in tier_config_strategy(),
+            worker_operations in prop::collection::vec(
+                (0usize..=7, task_id_strategy(), normal_duration_strategy()),
+                10..30
+            )
+        ) {
+            use std::sync::Arc;
+            use std::thread;
+
+            let manager = Arc::new(TierManager::new(config));
+            let operations_per_worker = 20;
+
+            // Spawn concurrent operations for multiple workers
+            let handles: Vec<_> = worker_operations.into_iter().take(4).map(|(worker_id, base_task_id, _duration)| {
+                let manager = Arc::clone(&manager);
+                thread::spawn(move || {
+                    for i in 0..operations_per_worker {
+                        let task_id = TaskId(base_task_id.0 + i);
+                        let context = TaskContext { worker_id, priority: None };
+
+                        manager.before_poll(task_id, &context);
+                        manager.after_poll(task_id, PollResult::Ready, Duration::from_micros(100));
+
+                        // Some voluntary yields
+                        if i % 5 == 0 {
+                            manager.on_yield(task_id);
+                        }
+                    }
+                })
+            }).collect();
+
+            // Wait for all operations to complete
+            for handle in handles {
+                handle.join().unwrap();
+            }
+
+            // Verify that all worker stats are consistent
+            for worker_id in 0..4 {
+                let worker_stats = manager.get_worker_metrics(worker_id);
+                prop_assert_eq!(worker_stats.worker_id, worker_id);
+                prop_assert_eq!(worker_stats.polls, operations_per_worker as u64);
+                prop_assert_eq!(worker_stats.tasks, operations_per_worker as u64);
+                prop_assert!(worker_stats.yields >= 4); // At least 4 yields (every 5th operation)
+                prop_assert!(worker_stats.cpu_time_ns > 0);
+            }
+        }
+
+        /// Property: Worker isolation - operations on one worker don't affect others
+        #[test]
+        fn worker_isolation_invariant(
+            config in tier_config_strategy(),
+            worker1_ops in 1u64..=20,
+            worker2_ops in 1u64..=20,
+            worker1_id in 0usize..=100,
+            worker2_id in 0usize..=100
+        ) {
+            prop_assume!(worker1_id != worker2_id);
+
+            let manager = TierManager::new(config);
+
+            // Operations on worker 1
+            for i in 0..worker1_ops {
+                let task_id = TaskId(i + 1000);
+                let context = TaskContext { worker_id: worker1_id, priority: None };
+                manager.before_poll(task_id, &context);
+                manager.after_poll(task_id, PollResult::Ready, Duration::from_micros(50));
+            }
+
+            // Operations on worker 2
+            for i in 0..worker2_ops {
+                let task_id = TaskId(i + 2000);
+                let context = TaskContext { worker_id: worker2_id, priority: None };
+                manager.before_poll(task_id, &context);
+                manager.after_poll(task_id, PollResult::Ready, Duration::from_micros(75));
+            }
+
+            // Verify worker isolation
+            let worker1_stats = manager.get_worker_metrics(worker1_id);
+            let worker2_stats = manager.get_worker_metrics(worker2_id);
+
+            prop_assert_eq!(worker1_stats.worker_id, worker1_id);
+            prop_assert_eq!(worker1_stats.polls, worker1_ops);
+            prop_assert_eq!(worker1_stats.tasks, worker1_ops);
+
+            prop_assert_eq!(worker2_stats.worker_id, worker2_id);
+            prop_assert_eq!(worker2_stats.polls, worker2_ops);
+            prop_assert_eq!(worker2_stats.tasks, worker2_ops);
+
+            // Workers should have different CPU times due to different durations
+            if worker1_ops > 0 && worker2_ops > 0 {
+                prop_assert!(worker1_stats.cpu_time_ns > 0);
+                prop_assert!(worker2_stats.cpu_time_ns > 0);
+            }
+        }
+
+        /// Property: get_all_worker_metrics consistency with individual get_worker_metrics
+        #[test]
+        fn worker_metrics_api_consistency(
+            config in tier_config_strategy(),
+            worker_operations in prop::collection::vec(
+                (0usize..=5, 1u64..=10),
+                1..8
+            )
+        ) {
+            let manager = TierManager::new(config);
+
+            // Perform operations on various workers
+            for (worker_id, num_ops) in worker_operations.iter() {
+                for i in 0..*num_ops {
+                    let task_id = TaskId((*worker_id as u64) * 1000 + (i as u64));
+                    let context = TaskContext { worker_id: *worker_id, priority: None };
+                    manager.before_poll(task_id, &context);
+                    manager.after_poll(task_id, PollResult::Ready, Duration::from_micros(100));
+                }
+            }
+
+            // Get all stats via both APIs
+            let all_stats = manager.get_all_worker_metrics();
+
+            // Verify consistency between APIs
+            for (worker_id, expected_ops) in worker_operations.iter() {
+                let individual_stats = manager.get_worker_metrics(*worker_id);
+
+                if *expected_ops > 0 {
+                    prop_assert!(all_stats.contains_key(worker_id));
+                    let bulk_stats = &all_stats[worker_id];
+
+                    prop_assert_eq!(individual_stats.worker_id, bulk_stats.worker_id);
+                    prop_assert_eq!(individual_stats.polls, bulk_stats.polls);
+                    prop_assert_eq!(individual_stats.violations, bulk_stats.violations);
+                    prop_assert_eq!(individual_stats.yields, bulk_stats.yields);
+                    prop_assert_eq!(individual_stats.cpu_time_ns, bulk_stats.cpu_time_ns);
+                    prop_assert_eq!(individual_stats.tasks, bulk_stats.tasks);
+                    prop_assert_eq!(individual_stats.slow_polls, bulk_stats.slow_polls);
+
+                    prop_assert_eq!(individual_stats.polls, *expected_ops);
+                    prop_assert_eq!(individual_stats.tasks, *expected_ops);
+                }
+            }
         }
     }
 }
