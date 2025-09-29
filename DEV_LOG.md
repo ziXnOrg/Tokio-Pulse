@@ -4,12 +4,6 @@
 
 ### Completed Tasks
 
-#### 1. Comment Style Standardization
-- **Issue**: Mixed comment styles (// vs /*) throughout codebase
-- **Solution**: Systematically converted all /* */ block comments to // style across 15+ files
-- **Files Modified**: All source files, tests, benchmarks, and macros
-- **Impact**: Consistent code style adhering to Elite Rust standards
-
 #### 2. Worker-Specific Statistics
 - **Implementation**: Added comprehensive per-worker thread performance tracking
 - **Key Features**:
