@@ -95,3 +95,6 @@ callgrind.out.*
 
 # rustfmt backup files
 **/*.rs.bk
+# Keep locally but exclude from repository
+docs/
+ROADMAP.md
