@@ -1,22 +1,23 @@
-/* SAFETY: AtomicPtr requires unsafe for lock-free performance */
+// SAFETY: AtomicPtr requires unsafe for lock-free performance
 #![allow(unsafe_code)]
-#![allow(clippy::inline_always)] /* Performance-critical */
+#![allow(clippy::inline_always)] // Performance-critical
 
-/*
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Runtime hooks for preemption control */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Runtime hooks for preemption control
 use crate::tier_manager::{PollResult, TaskContext, TaskId};
 use std::ptr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::time::Duration;
+
+#[cfg(feature = "tracing")]
+use tracing::{debug, info};
 
 /// Preemption hook interface.
 pub trait PreemptionHooks: Send + Sync {
@@ -75,25 +76,44 @@ impl HookRegistry {
 
     /// Install hooks, returning any previously set hooks
     pub fn set_hooks(&self, hooks: Arc<dyn PreemptionHooks>) -> Option<Arc<dyn PreemptionHooks>> {
+        #[cfg(feature = "tracing")]
+        info!("Installing new preemption hooks");
+
         let new_ptr = Box::into_raw(Box::new(hooks));
         let old_ptr = self.hooks.swap(new_ptr, Ordering::AcqRel);
+
+        #[cfg(feature = "tracing")]
+        if old_ptr.is_null() {
+            debug!("No previous hooks to replace");
+        } else {
+            debug!("Replaced existing hooks");
+        }
 
         if old_ptr.is_null() {
             None
         } else {
-            /* SAFETY: We own the old pointer and convert it back to Arc */
+            // SAFETY: We own the old pointer and convert it back to Arc
             Some(unsafe { *Box::from_raw(old_ptr) })
         }
     }
 
     /// Remove hooks, returning the removed hooks if any
     pub fn clear_hooks(&self) -> Option<Arc<dyn PreemptionHooks>> {
+        #[cfg(feature = "tracing")]
+        info!("Clearing preemption hooks");
+
         let old_ptr = self.hooks.swap(ptr::null_mut(), Ordering::AcqRel);
 
         if old_ptr.is_null() {
+            #[cfg(feature = "tracing")]
+            debug!("No hooks were installed");
+
             None
         } else {
-            /* SAFETY: We own the pointer and convert it back to Arc */
+            #[cfg(feature = "tracing")]
+            debug!("Hooks successfully cleared");
+
+            // SAFETY: We own the pointer and convert it back to Arc
             Some(unsafe { *Box::from_raw(old_ptr) })
         }
     }
@@ -103,7 +123,7 @@ impl HookRegistry {
     pub fn before_poll(&self, task_id: TaskId, context: &TaskContext) {
         let ptr = self.hooks.load(Ordering::Acquire);
         if !ptr.is_null() {
-            /* SAFETY: Pointer is valid as long as registry exists */
+            // SAFETY: Pointer is valid as long as registry exists
             let hooks = unsafe { &*ptr };
             hooks.before_poll(task_id, context);
         }
@@ -114,7 +134,7 @@ impl HookRegistry {
     pub fn after_poll(&self, task_id: TaskId, result: PollResult, duration: Duration) {
         let ptr = self.hooks.load(Ordering::Acquire);
         if !ptr.is_null() {
-            /* SAFETY: Pointer is valid as long as registry exists */
+            // SAFETY: Pointer is valid as long as registry exists 
             let hooks = unsafe { &*ptr };
             hooks.after_poll(task_id, result, duration);
         }
@@ -125,7 +145,7 @@ impl HookRegistry {
     pub fn on_yield(&self, task_id: TaskId) {
         let ptr = self.hooks.load(Ordering::Acquire);
         if !ptr.is_null() {
-            /* SAFETY: Pointer is valid as long as registry exists */
+            // SAFETY: Pointer is valid as long as registry exists */
             let hooks = unsafe { &*ptr };
             hooks.on_yield(task_id);
         }
@@ -136,7 +156,7 @@ impl HookRegistry {
     pub fn on_completion(&self, task_id: TaskId) {
         let ptr = self.hooks.load(Ordering::Acquire);
         if !ptr.is_null() {
-            /* SAFETY: Pointer is valid as long as registry exists */
+            // SAFETY: Pointer is valid as long as registry exists
             let hooks = unsafe { &*ptr };
             hooks.on_completion(task_id);
         }
@@ -149,18 +169,18 @@ impl HookRegistry {
     }
 }
 
-/* HookRegistry is Send + Sync via AtomicPtr */
-/* SAFETY: Arc<dyn PreemptionHooks> is Send + Sync */
+// HookRegistry is Send + Sync via AtomicPtr
+// SAFETY: Arc<dyn PreemptionHooks> is Send + Sync
 unsafe impl Send for HookRegistry {}
 // SAFETY: HookRegistry only contains AtomicPtr<Arc<dyn PreemptionHooks>>, and Arc<dyn PreemptionHooks> is Sync
 unsafe impl Sync for HookRegistry {}
 
 impl Drop for HookRegistry {
     fn drop(&mut self) {
-        /* Clean up any remaining hooks */
+        // Clean up any remaining hooks
         let ptr = self.hooks.load(Ordering::Acquire);
         if !ptr.is_null() {
-            /* SAFETY: We own the pointer and must free it */
+            // SAFETY: We own the pointer and must free it
             unsafe { drop(Box::from_raw(ptr)) }
         }
     }

@@ -1,41 +1,39 @@
-#![allow(unsafe_code)] /* clock_gettime requires unsafe */
+#![allow(unsafe_code)] // clock_gettime requires unsafe
 
-/*
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Linux CPU timing via clock_gettime */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Linux CPU timing via clock_gettime
 use libc::{CLOCK_THREAD_CPUTIME_ID, clock_gettime, timespec};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{Calibratable, CpuTimer, TimingError, median_of_sorted};
 
-/* Linux timer implementation */
+// Linux timer implementation
 #[derive(Debug)]
 pub struct LinuxTimer {
-    /* Calibrated overhead (ns) */
+    // Calibrated overhead (ns)
     overhead_ns: AtomicU64,
 }
 
 impl LinuxTimer {
-    /* Create Linux timer */
+    // Create Linux timer
     pub fn new() -> Result<Self, TimingError> {
         let timer = Self {
             overhead_ns: AtomicU64::new(0),
         };
 
-        /* Verify clock_gettime */
+        // Verify clock_gettime
         timer.get_thread_cpu_time_raw()?;
 
         Ok(timer)
     }
 
-    /* Raw CPU time without compensation */
+    // Raw CPU time without compensation
     #[inline]
     fn get_thread_cpu_time_raw(&self) -> Result<u64, TimingError> {
         let mut ts = timespec {
@@ -43,11 +41,11 @@ impl LinuxTimer {
             tv_nsec: 0,
         };
 
-        /* SAFETY: Valid timespec and clock ID */
+        // SAFETY: Valid timespec and clock ID
         let ret = unsafe { clock_gettime(CLOCK_THREAD_CPUTIME_ID, &mut ts) };
 
         if ret == 0 {
-            /* Convert to nanoseconds */
+            // Convert to nanoseconds
             let secs_ns = (ts.tv_sec as u64).saturating_mul(1_000_000_000);
             let total_ns = secs_ns.saturating_add(ts.tv_nsec as u64);
             Ok(total_ns)
@@ -63,7 +61,7 @@ impl CpuTimer for LinuxTimer {
         let raw_time = self.get_thread_cpu_time_raw()?;
         let overhead = self.overhead_ns.load(Ordering::Relaxed);
 
-        /* Subtract overhead */
+        // Subtract overhead
         Ok(raw_time.saturating_sub(overhead))
     }
 
@@ -82,7 +80,7 @@ impl Calibratable for LinuxTimer {
         const SAMPLES: usize = 1000;
         let mut overheads = Vec::with_capacity(SAMPLES);
 
-        /* Warm up */
+        // Warm up
         for _ in 0..100 {
             let _ = self.get_thread_cpu_time_raw();
         }

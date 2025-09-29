@@ -1,15 +1,13 @@
-#![allow(unsafe_code)] /* Windows APIs require unsafe */
+#![allow(unsafe_code)] // Windows APIs require unsafe
 
-/*
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Windows CPU time via QueryThreadCycleTime */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Windows CPU time via QueryThreadCycleTime
 use std::sync::atomic::{AtomicU64, Ordering};
 use windows_sys::Win32::System::{
     Performance::QueryPerformanceFrequency,

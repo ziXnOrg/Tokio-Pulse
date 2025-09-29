@@ -1,40 +1,38 @@
-/**
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Benchmarks for hook registry performance */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Benchmarks for hook registry performance
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_pulse::hooks::{HookRegistry, NullHooks, PreemptionHooks};
 use tokio_pulse::tier_manager::{PollResult, TaskContext, TaskId};
 
-/* Mock hooks for benchmarking */
+// Mock hooks for benchmarking
 struct NoOpHooks;
 
 impl PreemptionHooks for NoOpHooks {
     fn before_poll(&self, _task_id: TaskId, _context: &TaskContext) {
-        /* Minimal work to measure overhead */
+        // Minimal work to measure overhead
         black_box(42);
     }
 
     fn after_poll(&self, _task_id: TaskId, _result: PollResult, _duration: Duration) {
-        /* Minimal work to measure overhead */
+        // Minimal work to measure overhead
         black_box(42);
     }
 
     fn on_yield(&self, _task_id: TaskId) {
-        /* Minimal work to measure overhead */
+        // Minimal work to measure overhead
         black_box(42);
     }
 
     fn on_completion(&self, _task_id: TaskId) {
-        /* Minimal work to measure overhead */
+        // Minimal work to measure overhead
         black_box(42);
     }
 }
@@ -236,11 +234,11 @@ fn bench_critical_path(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("critical_path");
 
-    /* Measure the complete poll cycle overhead */
+    // Measure the complete poll cycle overhead
     group.bench_function("poll_cycle/no_hooks", |b| {
         b.iter(|| {
             registry_no_hooks.before_poll(black_box(task_id), black_box(&context));
-            /* Simulate poll work */
+            // Simulate poll work
             black_box(std::hint::black_box(42));
             registry_no_hooks.after_poll(
                 black_box(task_id),
@@ -253,7 +251,7 @@ fn bench_critical_path(c: &mut Criterion) {
     group.bench_function("poll_cycle/with_hooks", |b| {
         b.iter(|| {
             registry_with_hooks.before_poll(black_box(task_id), black_box(&context));
-            /* Simulate poll work */
+            // Simulate poll work
             black_box(std::hint::black_box(42));
             registry_with_hooks.after_poll(
                 black_box(task_id),

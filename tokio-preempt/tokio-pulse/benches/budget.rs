@@ -1,13 +1,11 @@
-/**
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Benchmarks for task budget operations */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Benchmarks for task budget operations
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::thread;
@@ -155,12 +153,12 @@ fn bench_budget_memory_layout(c: &mut Criterion) {
         b.iter(|| black_box(mem::align_of::<TaskBudget>()));
     });
 
-    /* Verify cache-line alignment */
+    // Verify cache-line alignment
     c.bench_function("task_budget/memory/cache_aligned", |b| {
         b.iter(|| {
             let budget = TaskBudget::new(DEFAULT_BUDGET);
             let addr = &budget as *const _ as usize;
-            black_box(addr % 64 == 0) /* Check 64-byte alignment */
+            black_box(addr % 64 == 0) // Check 64-byte alignment
         });
     });
 }
@@ -172,7 +170,7 @@ fn bench_budget_tier_escalation(c: &mut Criterion) {
         b.iter(|| {
             budget.reset_tier();
 
-            /* Escalate through all tiers */
+            // Escalate through all tiers
             let tier1 = budget.escalate_tier();
             let tier2 = budget.escalate_tier();
             let tier3 = budget.escalate_tier();
@@ -189,7 +187,7 @@ fn bench_budget_typical_workload(c: &mut Criterion) {
         b.iter(|| {
             budget.reset(DEFAULT_BUDGET);
 
-            /* Simulate typical poll pattern */
+            // Simulate typical poll pattern
             for _ in 0..50 {
                 if budget.is_exhausted() {
                     break;

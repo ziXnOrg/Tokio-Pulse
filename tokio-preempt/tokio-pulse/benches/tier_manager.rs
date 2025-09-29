@@ -1,13 +1,11 @@
-/**
- *     ______   __  __     __         ______     ______
- *    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
- *    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
- *     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
- *      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
- *
- * Author: Colin MacRitchie / Ripple Group
- */
-/* Benchmarks for tier manager operations */
+//     ______   __  __     __         ______     ______
+//    /\  == \ /\ \/\ \   /\ \       /\  ___\   /\  ___\
+//    \ \  _-/ \ \ \_\ \  \ \ \____  \ \___  \  \ \  __\
+//     \ \_\    \ \_____\  \ \_____\  \/\_____\  \ \_____\
+//      \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+//
+// Author: Colin MacRitchie / Ripple Group
+// Benchmarks for tier manager operations
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::thread;
@@ -208,17 +206,17 @@ fn bench_tier_promotion(c: &mut Criterion) {
 
     c.bench_function("tier_manager/promotion_cycle", |b| {
         b.iter(|| {
-            /* Simulate task that triggers tier promotion */
+            // Simulate task that triggers tier promotion
             manager.before_poll(task_id, &context);
 
-            /* Simulate slow poll - trigger warning tier */
+            // Simulate slow poll - trigger warning tier
             manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(15));
 
-            /* Another slow poll - trigger yield tier */
+            // Another slow poll - trigger yield tier
             manager.before_poll(task_id, &context);
             manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(60));
 
-            /* Clean up */
+            // Clean up
             manager.on_completion(task_id);
         });
     });
@@ -273,7 +271,7 @@ fn bench_memory_usage(c: &mut Criterion) {
         b.iter(|| black_box(mem::size_of::<TierManager>()));
     });
 
-    /* Benchmark memory growth with many tasks */
+    // Benchmark memory growth with many tasks
     let mut group = c.benchmark_group("tier_manager/memory_growth");
 
     for num_tasks in [100, 1000, 10000].iter() {
@@ -306,7 +304,7 @@ fn bench_slow_queue_operations(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("tier_manager/slow_queue");
 
-    /* Benchmark adding tasks to slow queue */
+    // Benchmark adding tasks to slow queue
     group.bench_function("enqueue", |b| {
         b.iter(|| {
             for i in 0..10 {
@@ -316,15 +314,15 @@ fn bench_slow_queue_operations(c: &mut Criterion) {
                     priority: None,
                 };
                 manager.before_poll(task_id, &context);
-                /* Trigger slow task detection */
+                // Trigger slow task detection
                 manager.after_poll(task_id, PollResult::Pending, Duration::from_millis(150));
             }
         });
     });
 
-    /* Benchmark processing slow queue */
+    // Benchmark processing slow queue
     group.bench_function("process", |b| {
-        /* Pre-populate slow queue */
+        // Pre-populate slow queue
         for i in 0..100 {
             let task_id = TaskId(i);
             let context = TaskContext {
@@ -348,7 +346,7 @@ fn bench_worst_case_scenario(c: &mut Criterion) {
 
     c.bench_function("tier_manager/worst_case/thundering_herd", |b| {
         b.iter(|| {
-            /* Simulate thundering herd - many tasks becoming slow simultaneously */
+            // Simulate thundering herd - many tasks becoming slow simultaneously
             let handles: Vec<_> = (0..100)
                 .map(|i| {
                     let manager = Arc::clone(&manager);
@@ -364,7 +362,7 @@ fn bench_worst_case_scenario(c: &mut Criterion) {
                             manager.after_poll(
                                 task_id,
                                 PollResult::Pending,
-                                Duration::from_millis(200), /* All tasks are slow */
+                                Duration::from_millis(200), // All tasks are slow
                             );
                         }
                     })

@@ -29,6 +29,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = tr
 # Error handling
 thiserror = "1.0"
 anyhow = "1.0"
+fastrand = "2.0"
 
 # Platform-specific dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -43,6 +44,7 @@ mach2 = "0.4"
 
 [dev-dependencies]
 # Testing
+tokio = { version = "1.0", features = ["full"] }
 tokio-test = "0.4"
 proptest = "1.5"
 quickcheck = "1.0"
