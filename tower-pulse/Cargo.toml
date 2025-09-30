@@ -1,0 +1,67 @@
+[package]
+name = "tower-pulse"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Tokio-Pulse Contributors"]
+description = "Tower middleware integration for Tokio-Pulse preemption system"
+documentation = "https://docs.rs/tower-pulse"
+repository = "https://github.com/ziXnOrg/Tokio-Pulse"
+license = "MIT OR Apache-2.0"
+keywords = ["async", "tokio", "tower", "preemption", "middleware"]
+categories = ["asynchronous", "web-programming", "network-programming"]
+
+[dependencies]
+# Core dependencies
+tokio-pulse = { path = "../tokio-preempt/tokio-pulse" }
+tower = { version = "0.5", features = ["full"] }
+tokio = { version = "1.41", features = ["rt", "rt-multi-thread", "time", "sync"] }
+
+# HTTP support
+http = "1.0"
+http-body = "1.0"
+http-body-util = "0.1"
+
+# Error handling
+thiserror = "1.0"
+
+# Metrics and observability
+metrics = { version = "0.23", optional = true }
+tracing = { version = "0.1", features = ["std"], optional = true }
+
+# Utilities
+pin-project-lite = "0.2"
+futures-util = { version = "0.3", default-features = false }
+
+[dev-dependencies]
+# Testing
+tower-test = "0.4"
+tokio-test = "0.4"
+hyper = { version = "1.0", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+
+# Example dependencies
+axum = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+default = ["metrics", "tracing"]
+metrics = ["dep:metrics", "tokio-pulse/metrics"]
+tracing = ["dep:tracing", "tokio-pulse/tracing"]
+
+[[example]]
+name = "axum_server"
+required-features = ["tracing"]
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"

@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "tokio-preempt/tokio-pulse",
+    "tower-pulse",
 ]
 
 # Use resolver 2 for better dependency resolution
