@@ -1,14 +1,14 @@
 # Tokio-Pulse
 
-Tokio-Pulse is a production-ready preemption system for Tokio's async runtime developed to address task starvation issues where CPU-bound tasks monopolize worker threads. The library provides graduated intervention with measured overhead below 100 nanoseconds per poll operation.
+ preemption system for Tokio's async runtime developed to address task starvation issues where CPU-bound tasks monopolize worker threads. The library provides graduated intervention with measured overhead below 100 nanoseconds per poll operation.
 
 ## Overview
 
-Tokio-Pulse implements a multi-tier intervention system that monitors task execution and applies escalating interventions to prevent monopolization of worker threads. The system operates through four tiers: Monitor, Warn, Yield, and Isolate, with configurable thresholds and policies.
+multi-tier intervention system that monitors task execution and applies escalating interventions to prevent monopolization of worker threads. The system operates through four tiers: Monitor, Warn, Yield, and Isolate, with configurable thresholds and policies.
 
 ## Supported Platforms
 
-Tokio-Pulse supports the following platforms with optimized CPU timing implementations:
+support for the following platforms with optimized CPU timing implementations:
 
 - **Linux**: x86-64, utilizing clock_gettime(CLOCK_THREAD_CPUTIME_ID) for nanosecond precision CPU timing
 - **Windows**: x86-64, utilizing QueryThreadCycleTime with frequency conversion
@@ -97,7 +97,7 @@ for (worker_id, metrics) in all_metrics {
 
 ## Building
 
-Standard Rust build process:
+build process:
 
 ```bash
 cargo build --release          # Optimized build
@@ -108,7 +108,7 @@ cargo doc --no-deps --open     # API documentation
 
 ## Benchmarking
 
-The project includes comprehensive benchmarks:
+benchmarks:
 
 ```bash
 cargo bench --bench cpu_timing     # CPU timing implementations
@@ -120,7 +120,7 @@ cargo bench --bench worker_stats   # Worker statistics performance
 
 ## Testing
 
-Tokio-Pulse includes multiple test categories:
+test categories:
 
 - Unit tests: `cargo test --lib`
 - Integration tests: `cargo test --test '*'`
